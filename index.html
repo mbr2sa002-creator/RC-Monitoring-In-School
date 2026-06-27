@@ -2,15 +2,8 @@
 <html lang="km">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 <title>World Vision RC Monitoring | កម្មវិធីតាមដាន RC</title>
-<!-- PWA: Install on home screen -->
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="RC Monitor">
-<meta name="mobile-web-app-capable" content="yes">
-<meta name="theme-color" content="#E64E12">
-<link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%23E64E12'/><text y='.9em' font-size='80' x='10'>📋</text></svg>">
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Khmer:wght@400;600;700;800;900&display=swap');
 
@@ -76,7 +69,6 @@
     display: flex;
     flex-direction: column;
     position: relative;
-    padding-bottom: env(safe-area-inset-bottom);
   }
 
   /* ─── WELCOME SCREEN ─── */
@@ -713,7 +705,7 @@
     position: fixed; left: 0; right: 0; bottom: 0; z-index: 25;
     max-width: 480px; margin: 0 auto;
     background: linear-gradient(to top, var(--bg) 55%, rgba(255,248,243,0) 100%);
-    padding: 18px 16px calc(20px + env(safe-area-inset-bottom));
+    padding: 18px 16px 20px;
   }
   .bottom-bar-inner { display: flex; gap: 10px; }
 
@@ -1134,19 +1126,6 @@
       © World Vision Cambodia 2025
     </div>
 
-    <!-- Install on phone tip -->
-    <div id="installBanner" style="display:none;margin-top:16px;background:rgba(230,78,18,0.08);border:1.5px dashed rgba(230,78,18,0.35);border-radius:12px;padding:10px 14px;font-size:11.5px;color:var(--ink-soft);line-height:1.7;text-align:center;">
-      📲 <strong>ដំឡើងក្នុងទូរស័ព្ទ</strong><br>
-      iOS: ចុច Share → Add to Home Screen<br>
-      Android: ⋮ menu → Add to Home Screen
-    </div>
-    <script>
-      // Show install banner if not already installed
-      if (!window.matchMedia('(display-mode: standalone)').matches) {
-        document.getElementById('installBanner').style.display = 'block';
-      }
-    </script>
-
   </div>
 </div>
 
@@ -1248,16 +1227,20 @@ const INCOMPLETE_REASONS = [
 const STORAGE_KEY = "rc_monitoring_visits_km_v1";
 
 /* ============================================================
-   GOOGLE SHEETS INTEGRATION
+   GOOGLE SHEETS INTEGRATION — ALREADY CONFIGURED
    ============================================================
-   HOW TO SET UP:
-   1. Open your Google Sheet: https://docs.google.com/spreadsheets/d/1NzZ7HWKZfUBrmNetBoEsSwLmtLX-AeQroFIcWfx0hdQ/
-   2. Go to Extensions → Apps Script
-   3. Delete any existing code and paste the Apps Script code below
-   4. Click Deploy → New Deployment → Web App
+   This app is already connected to the RC Monitoring Google Sheet.
+   Every completed visit syncs automatically in the background —
+   no setup needed on any device.
+
+   If you ever need to point this at a DIFFERENT spreadsheet:
+   1. Open the new Google Sheet → Extensions → Apps Script
+   2. Delete any existing code and paste the Apps Script code below
+   3. Click Deploy → New Deployment → Web App
       - Execute as: Me
       - Who has access: Anyone
-   5. Copy the Web App URL and paste it as SHEETS_SCRIPT_URL below
+   4. Copy the new Web App URL and replace SHEETS_SCRIPT_URL below,
+      then re-publish this file.
 
    APPS SCRIPT CODE TO PASTE:
    ─────────────────────────────────────────────────────────────
@@ -1303,24 +1286,9 @@ const STORAGE_KEY = "rc_monitoring_visits_km_v1";
    ─────────────────────────────────────────────────────────────
 */
 
-// ★ SET YOUR APPS SCRIPT WEB APP URL HERE — AUTO-CONNECTED ON EVERY DEVICE ★
-// This default URL is used automatically unless overridden in Settings.
-const DEFAULT_SHEETS_SCRIPT_URL = ""; // Set by admin via Settings inside the app
-
-// Auto-connect: use the saved override if set, otherwise fall back to the built-in default
-let SHEETS_SCRIPT_URL = localStorage.getItem("rc_sheets_url") || DEFAULT_SHEETS_SCRIPT_URL;
-
-// If the stored override is blank but the default is set, clear the stale override so
-// the default is always picked up (handles the case where the admin cleared the URL in-app
-// but a new default has since been embedded).
-if (!localStorage.getItem("rc_sheets_url") && DEFAULT_SHEETS_SCRIPT_URL) {
-  // Nothing to do — SHEETS_SCRIPT_URL already holds DEFAULT_SHEETS_SCRIPT_URL above
-}
-
-// Helper: true when we're using the built-in default (not a manual override)
-function isUsingDefaultUrl() {
-  return !localStorage.getItem("rc_sheets_url") && !!DEFAULT_SHEETS_SCRIPT_URL;
-}
+// Google Sheets sync is pre-configured — every completed visit syncs automatically.
+// No manual setup needed on any device.
+const SHEETS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbw7Uxi0vQC1HmkWC9hw9HX6_0uQfBkQ6kBXXU7teDaYMO1OMPP4gg4Jqhf1Z0RHni0yfw/exec";
 
 async function submitToGoogleSheets(record) {
   if (!SHEETS_SCRIPT_URL) return { skipped: true };
@@ -1364,15 +1332,17 @@ async function submitToGoogleSheets(record) {
   };
 
   try {
-    // Use no-cors to avoid CORS preflight with Google Apps Script redirects.
-    // The data is sent and written to the sheet successfully; we just can't read the response.
+    // Apps Script Web Apps don't return proper CORS headers for fetch() to read
+    // the response, even when "Anyone" has access. mode:"no-cors" lets the
+    // request go through and reach the server; we just can't read the body back.
+    // If fetch() doesn't throw, the request was sent successfully.
     await fetch(SHEETS_SCRIPT_URL, {
       method: "POST",
       mode: "no-cors",
       body: JSON.stringify(payload),
       headers: { "Content-Type": "text/plain" }
     });
-    return { success: true };
+    return { success: true, opaque: true };
   } catch (err) {
     console.error("Google Sheets submission failed:", err);
     return { error: err.message };
@@ -1526,8 +1496,7 @@ function renderTopbar(){
     childCriteria: ["លក្ខណវិនិច្ឆ័យតាមដាន", state.activeChildId ? (getChild(state.activeChildId).name||"") : ""],
     visitSummary: ["បានបញ្ចប់ការតាមដាន", "សង្ខេបលទ្ធផល"],
     historyList: ["ប្រវត្តិការតាមដាន", "ប្រវត្តិការងារ"],
-    historyDetail: ["កំណត់ត្រាការតាមដាន", "ព័ត៌មានលម្អិត"],
-    sheetsSettings: ["ការកំណត់", "Google Sheets"]
+    historyDetail: ["កំណត់ត្រាការតាមដាន", "ព័ត៌មានលម្អិត"]
   };
   const t = titles[state.route] || ["កម្មវិធីតាមដាន RC",""];
   eyebrow.textContent = t[0];
@@ -1561,7 +1530,6 @@ function renderScreen(){
   switch(state.route){
     case "home": return renderHome(el, bar);
     case "commune": return renderCommune(el, barInner);
-    case "sheetsSettings": return renderSheetsSettings(el, bar);
     case "school": return renderSchool(el, barInner);
     case "teacher": return renderTeacher(el, barInner);
     case "visitInfo": return renderVisitInfo(el, barInner);
@@ -1697,156 +1665,10 @@ function renderHome(el, bar){
       <div class="chev">${iconChevron()}</div>
     </div>
 
-    <div class="home-action secondary" id="sheetsSettingsBtn">
-      <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg></div>
-      <div class="home-action-text">
-        <div class="home-action-title">Google Sheets</div>
-        <div class="home-action-sub">${SHEETS_SCRIPT_URL ? '✓ បានភ្ជាប់ Google Sheets' : 'ភ្ជាប់ទៅ Google Sheets'}</div>
-      </div>
-      <div class="chev">${iconChevron()}</div>
-    </div>
-
-    <div class="footer-note">ទិន្នន័យត្រូវបានរក្សាទុកក្នុងទូរស័ព្ទនេះ${SHEETS_SCRIPT_URL ? ' និងបញ្ជូនទៅ Google Sheets' : ''}។<br>បញ្ជីឃុំ សាលា គ្រូបង្រៀន និងកុមារ យកចេញពីសៀវភៅបញ្ជីរបស់អ្នក។</div>
+    <div class="footer-note">ទិន្នន័យត្រូវបានរក្សាទុកក្នុងទូរស័ព្ទនេះ និងបញ្ជូនទៅ Google Sheets ដោយស្វ័យប្រវត្តិ។<br>បញ្ជីឃុំ សាលា គ្រូបង្រៀន និងកុមារ យកចេញពីសៀវភៅបញ្ជីរបស់អ្នក។</div>
   `;
   document.getElementById("startVisitBtn").onclick = startNewVisit;
   document.getElementById("historyBtn").onclick = () => go("historyList");
-  document.getElementById("sheetsSettingsBtn").onclick = () => go("sheetsSettings");
-}
-
-/* ─── APPS SCRIPT CODE ─── */
-const APPS_SCRIPT_CODE = `function doPost(e) {
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
-  var sheet = ss.getSheetByName("Submissions");
-  if (!sheet) {
-    sheet = ss.insertSheet("Submissions");
-    sheet.appendRow(["Timestamp","Visit ID","Date","Commune","School","Teacher","Topic","Total","Good","Flagged","Child ID","Child Name","Grade","Village","Presence","Health","Education","Protection","Participation","Notes"]);
-    sheet.getRange(1,1,1,20).setFontWeight("bold").setBackground("#E64E12").setFontColor("white");
-  }
-  var data = JSON.parse(e.postData.contents);
-  if (data.test) return ContentService.createTextOutput(JSON.stringify({ok:true})).setMimeType(ContentService.MimeType.JSON);
-  var ts = new Date().toISOString();
-  data.children.forEach(function(c){
-    var notes=(c.flags||[]).map(function(f){return f.label+(f.note?': '+f.note:'');}).join(" | ");
-    var cr=c.criteria||{};
-    sheet.appendRow([ts,data.id,data.date,data.communeName,data.schoolName,data.teacherName,data.topic,data.totalChildren,data.goodCount,data.flaggedCount,c.id,c.name,c.grade,c.villageName||"",cr.presence||"good",cr.health||"good",cr.education||"good",cr.protection||"good",cr.participation||"good",notes]);
-  });
-  return ContentService.createTextOutput(JSON.stringify({ok:true,rows:data.children.length})).setMimeType(ContentService.MimeType.JSON);
-}`;
-
-function renderSheetsSettings(el, bar) {
-  bar.style.display = "none";
-  const connected = !!SHEETS_SCRIPT_URL;
-  const savedUrl = localStorage.getItem("rc_sheets_url") || "";
-
-  el.innerHTML = `
-    <div style="padding:8px 0 32px;">
-      <div class="section-label">ការតភ្ជាប់</div>
-      <div class="section-title">Google Sheets</div>
-      <div class="section-sub">ទិន្នន័យនឹងត្រូវបញ្ជូនទៅ Google Sheets ដោយស្វ័យប្រវត្តិ។</div>
-
-      <!-- Big status pill -->
-      <div style="text-align:center;padding:20px 0 24px;">
-        <div style="display:inline-flex;align-items:center;gap:10px;background:${connected?'var(--good-wash)':'var(--danger-wash)'};border:2px solid ${connected?'rgba(39,168,76,0.3)':'rgba(217,52,52,0.25)'};border-radius:40px;padding:10px 22px;">
-          <div style="width:10px;height:10px;border-radius:50%;background:${connected?'var(--good)':'var(--danger)'};flex-shrink:0;${connected?'box-shadow:0 0 8px rgba(39,168,76,0.5)':''}"></div>
-          <span style="font-size:14px;font-weight:800;color:${connected?'var(--good)':'var(--danger)'};">${connected?'✓ ភ្ជាប់ហើយ':'✗ មិនទាន់ភ្ជាប់'}</span>
-        </div>
-        ${connected?`<div style="font-size:11px;color:var(--ink-dim);margin-top:8px;">Data will sync automatically after each visit</div>`:''}
-      </div>
-
-      ${connected?`
-      <!-- Test button -->
-      <button class="btn btn-primary" id="testBtn" style="margin-bottom:14px;">🔗 សាកល្បងភ្ជាប់ (Test Connection)</button>
-      `:''}
-
-      <!-- URL paste field -->
-      <div style="background:#fff;border-radius:16px;padding:18px;border:1.5px solid var(--border);margin-bottom:14px;box-shadow:0 2px 12px rgba(230,78,18,0.08);">
-        <div style="font-size:13.5px;font-weight:800;color:var(--ink);margin-bottom:6px;">📌 Apps Script URL</div>
-        <div style="font-size:12px;color:var(--ink-soft);margin-bottom:12px;">Paste the URL from Google Apps Script here</div>
-        <textarea id="urlInput" rows="3"
-          style="width:100%;border:1.5px solid var(--border);border-radius:10px;padding:12px;font-size:13px;font-family:monospace;color:var(--ink);background:var(--bg-raised);outline:none;resize:none;line-height:1.5;"
-          placeholder="https://script.google.com/macros/s/…/exec">${escapeHtml(savedUrl)}</textarea>
-        <button class="btn btn-primary" id="saveBtn" style="margin-top:10px;margin-bottom:0;">💾 រក្សាទុក &amp; ភ្ជាប់</button>
-        ${connected?`<button class="btn btn-secondary" id="clearBtn" style="margin-top:8px;margin-bottom:0;color:var(--danger);border-color:rgba(217,52,52,0.3);">🗑 លុប URL</button>`:''}
-      </div>
-
-      <!-- How to get the URL -->
-      <div style="background:var(--bg-raised);border-radius:16px;padding:18px;border:1.5px dashed rgba(230,78,18,0.3);margin-bottom:14px;">
-        <div style="font-size:13px;font-weight:800;color:var(--ink);margin-bottom:14px;">🚀 របៀបបើក Google Sheets (ម្ដងតែប៉ុណ្ណោះ)</div>
-        ${[
-          ["1","បើក Google Sheet","<a href='https://docs.google.com/spreadsheets/d/1NzZ7HWKZfUBrmNetBoEsSwLmtLX-AeQroFIcWfx0hdQ/' target='_blank' style='color:var(--orange);font-weight:700;'>ចុចទីនេះ →</a>"],
-          ["2","ចូល Apps Script","Extensions → Apps Script"],
-          ["3","Copy & Paste Code","ចម្លង code ខាងក្រោម ហើយ paste ចូល Editor"],
-          ["4","Deploy","Deploy → New Deployment → Web App<br><small style='color:var(--ink-dim);'>Execute as: Me · Access: Anyone</small>"],
-          ["5","Copy URL","ចម្លង Web App URL → Paste ខាងលើ → Save"]
-        ].map(([n,t,d])=>`
-          <div style="display:flex;gap:12px;margin-bottom:14px;align-items:flex-start;">
-            <div style="min-width:28px;height:28px;border-radius:50%;background:var(--orange);color:#fff;font-weight:800;font-size:13px;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px;">${n}</div>
-            <div>
-              <div style="font-size:13px;font-weight:700;color:var(--ink);">${t}</div>
-              <div style="font-size:12px;color:var(--ink-soft);margin-top:2px;line-height:1.65;">${d}</div>
-            </div>
-          </div>
-        `).join("")}
-      </div>
-
-      <!-- Code block -->
-      <div style="border-radius:14px;overflow:hidden;margin-bottom:6px;">
-        <div style="background:#1e1e2e;padding:12px 14px;display:flex;justify-content:space-between;align-items:center;">
-          <span style="color:#888;font-size:11px;font-weight:700;letter-spacing:0.06em;">APPS SCRIPT CODE</span>
-          <button id="copyCodeBtn" style="background:var(--orange);color:#fff;border:none;border-radius:8px;padding:6px 14px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;">ចម្លង Copy</button>
-        </div>
-        <pre id="codeBlock" style="background:#1e1e2e;color:#a8e6a3;font-size:10px;padding:14px;margin:0;overflow-x:auto;white-space:pre-wrap;word-break:break-all;font-family:monospace;line-height:1.6;border-top:1px solid rgba(255,255,255,0.07);">${escapeHtml(APPS_SCRIPT_CODE)}</pre>
-      </div>
-      <div style="font-size:11px;color:var(--ink-dim);text-align:center;margin-bottom:8px;">ចម្លង code នេះ ហើយ paste ចូល Apps Script editor</div>
-    </div>
-  `;
-
-  // Save URL
-  document.getElementById("saveBtn").onclick = () => {
-    const url = document.getElementById("urlInput").value.trim();
-    if (!url.startsWith("http")) { showToast("URL មិនត្រឹមត្រូវ ❌", iconFlag()); return; }
-    SHEETS_SCRIPT_URL = url;
-    localStorage.setItem("rc_sheets_url", url);
-    showToast("ភ្ជាប់ Google Sheets ✓", iconCheck());
-    setTimeout(() => go("sheetsSettings", false), 800);
-  };
-
-  // Clear URL
-  const clearBtn = document.getElementById("clearBtn");
-  if (clearBtn) clearBtn.onclick = () => {
-    localStorage.removeItem("rc_sheets_url");
-    SHEETS_SCRIPT_URL = "";
-    showToast("បានលុប URL", iconCheck());
-    setTimeout(() => go("sheetsSettings", false), 800);
-  };
-
-  // Test
-  const testBtn = document.getElementById("testBtn");
-  if (testBtn) testBtn.onclick = async () => {
-    testBtn.textContent = "⏳ សាកល្បង…"; testBtn.disabled = true;
-    try {
-      await fetch(SHEETS_SCRIPT_URL, { method:"POST", mode:"no-cors",
-        body: JSON.stringify({test:true,id:"TEST",date:todayStr(),communeId:"",communeName:"TEST",schoolId:"",schoolName:"TEST",teacherId:"",teacherName:"TEST",topic:"TEST",totalChildren:0,goodCount:0,flaggedCount:0,children:[]}),
-        headers:{"Content-Type":"text/plain"} });
-      showToast("ភ្ជាប់ជោគជ័យ ✓ — ពិនិត្យ Sheet!", iconCheckCircle());
-    } catch(e) { showToast("មានបញ្ហា — ពិនិត្យ URL ឡើងវិញ ❌", iconFlag()); }
-    testBtn.textContent = "🔗 សាកល្បងភ្ជាប់ (Test Connection)"; testBtn.disabled = false;
-  };
-
-  // Copy code
-  document.getElementById("copyCodeBtn").onclick = () => {
-    if (navigator.clipboard) {
-      navigator.clipboard.writeText(APPS_SCRIPT_CODE).then(() => {
-        showToast("បានចម្លង Code ✓", iconCheck());
-        const b = document.getElementById("copyCodeBtn");
-        if(b){ b.textContent = "✓ ចម្លងហើយ"; setTimeout(()=>{ const b2=document.getElementById("copyCodeBtn"); if(b2) b2.textContent="ចម្លង Copy"; },2000); }
-      });
-    } else {
-      const r = document.createRange(); r.selectNodeContents(document.getElementById("codeBlock"));
-      const s = window.getSelection(); s.removeAllRanges(); s.addRange(r);
-      showToast("ជ្រើសហើយ — ចុច Copy ❶", iconCheck());
-    }
-  };
 }
 
 function startNewVisit(){
