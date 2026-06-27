@@ -2897,9 +2897,9 @@ async function downloadAllSchoolsForMonth(mk, btnEl) {
       'វត្តមាន', 'សុខភាព', 'ការអប់រំ', 'ការការពារ', 'ការចូលរួម', 'ចំណាំ'
     ];
 
-    const getStatus = (flags, domain) => {
-      const f = (flags || []).find(x => x.domain === domain);
-      return f ? 'ត្រូវការកែតម្រូវ' : 'ល្អ';
+    const rcKids2 = (typeof RC_DATA !== 'undefined') ? (RC_DATA.children || []) : [];
+    const getStatus = (flags, key) => {
+      return (flags || []).some(f => f.key === key) ? 'ត្រូវការកែតម្រូវ' : 'ល្អ';
     };
 
     schools.forEach(school => {
@@ -2915,12 +2915,17 @@ async function downloadAllSchoolsForMonth(mk, btnEl) {
         const rows = [headers];
         byTeacher[teacherName].forEach(v => {
           (v.children || []).forEach(c => {
-            const flagNotes = (c.flags || []).map(f => `${f.label}: ${f.note || '-'}`).join('; ');
+            const full = rcKids2.find(x => x.id === c.id) || {};
+            const flagNotes = (c.flags || []).length
+              ? (c.flags || []).map(f => `${f.label || f.key}: ${f.note || '-'}`).join('; ')
+              : 'ល្អ';
             rows.push([
               v.id || '', v.date || '', v.communeName || '', school.schoolName,
               teacherName, v.topic || '',
-              c.name || '', c.childId || '', c.gender || '', c.age || '',
-              c.grade || '', c.status || '',
+              c.name || full.name || '', c.id || '',
+              full.gender || '', full.age || '',
+              c.grade || full.grade || '',
+              v.incomplete ? 'មិនបញ្ចប់' : 'បញ្ចប់',
               getStatus(c.flags, 'presence'), getStatus(c.flags, 'health'),
               getStatus(c.flags, 'education'), getStatus(c.flags, 'protection'),
               getStatus(c.flags, 'participation'), flagNotes
