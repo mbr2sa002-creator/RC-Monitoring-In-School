@@ -1125,6 +1125,235 @@
   /* ─── SCROLLBAR ─── */
   ::-webkit-scrollbar { display: none; }
 
+  /* ─── MONTH FILTER TABS ─── */
+  .month-filter-panel {
+    background: var(--bg-card);
+    border: 1.5px solid var(--border);
+    border-radius: var(--r);
+    padding: 16px;
+    margin-bottom: 14px;
+    box-shadow: 0 2px 8px rgba(230,78,18,0.05);
+  }
+  .month-filter-title {
+    font-size: 13px; font-weight: 800; color: var(--ink);
+    display: flex; align-items: center; gap: 8px; margin-bottom: 12px;
+  }
+  .month-filter-title svg { width: 15px; height: 15px; color: var(--orange); flex-shrink: 0; }
+
+  /* 12-month grid: 4 columns × 3 rows */
+  .month-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 6px;
+    margin-bottom: 0;
+  }
+  .month-grid-btn {
+    border: 1.5px solid rgba(230,78,18,0.2);
+    background: var(--bg-raised);
+    color: var(--ink-soft);
+    border-radius: 10px;
+    padding: 9px 4px 7px;
+    font-size: 11px; font-weight: 700; font-family: inherit;
+    cursor: pointer;
+    text-align: center;
+    line-height: 1.35;
+    transition: all .15s;
+    position: relative;
+  }
+  .month-grid-btn:active { transform: scale(0.94); }
+  .month-grid-btn.active {
+    background: var(--orange);
+    color: #fff;
+    border-color: var(--orange);
+    box-shadow: 0 3px 10px rgba(230,78,18,0.38);
+  }
+  .month-grid-btn.has-data:not(.active) {
+    border-color: rgba(230,78,18,0.4);
+    background: rgba(230,78,18,0.06);
+    color: var(--ink);
+  }
+  .month-grid-btn.no-data {
+    opacity: 0.32; cursor: default;
+    pointer-events: none;
+  }
+  .month-grid-en {
+    font-size: 9px; font-weight: 600; opacity: 0.65;
+    display: block; margin-bottom: 1px;
+    text-transform: uppercase; letter-spacing: 0.04em;
+  }
+  .month-grid-kh { display: block; font-size: 11.5px; font-weight: 800; }
+  .month-grid-badge {
+    display: inline-flex; align-items: center; justify-content: center;
+    background: rgba(255,255,255,0.28);
+    border-radius: 8px; font-size: 9.5px; font-weight: 800;
+    padding: 1px 5px; margin-top: 3px;
+    min-width: 16px;
+  }
+  .month-grid-btn:not(.active) .month-grid-badge {
+    background: rgba(230,78,18,0.14); color: var(--orange);
+  }
+  .month-grid-btn.no-data .month-grid-badge { display: none; }
+
+  /* Divider between grid and school list */
+  .month-detail-divider {
+    height: 1px; background: var(--border); margin: 14px 0 12px;
+  }
+
+  /* Month school list */
+  .month-schools-header {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 10px; gap: 8px; flex-wrap: wrap;
+  }
+  .month-schools-label {
+    font-size: 12px; font-weight: 700; color: var(--ink-soft);
+    text-transform: uppercase; letter-spacing: 0.07em;
+  }
+  .bulk-dl-btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: linear-gradient(135deg, #27A84C 0%, #2DC256 100%);
+    color: #fff;
+    border: none; border-radius: 9px;
+    padding: 8px 13px;
+    font-size: 12px; font-weight: 800; font-family: inherit;
+    cursor: pointer; white-space: nowrap;
+    box-shadow: 0 3px 12px rgba(39,168,76,0.38);
+    transition: opacity .15s, transform .1s;
+  }
+  .bulk-dl-btn:active { transform: scale(0.95); opacity: 0.88; }
+  .bulk-dl-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .bulk-dl-btn svg { width: 13px; height: 13px; flex-shrink: 0; }
+  .month-school-row {
+    display: flex; align-items: center; gap: 10px;
+    background: var(--bg-raised);
+    border: 1.5px solid var(--border);
+    border-radius: var(--r-sm);
+    padding: 10px 12px;
+    margin-bottom: 7px;
+  }
+  .month-school-info { flex: 1; min-width: 0; }
+  .month-school-name { font-size: 13px; font-weight: 700; color: var(--ink); line-height: 1.4; }
+  .month-school-meta { font-size: 11px; color: var(--ink-dim); margin-top: 1px; }
+  .month-school-dl-btn {
+    display: inline-flex; align-items: center; gap: 4px;
+    background: var(--orange);
+    color: #fff;
+    border: none; border-radius: 7px;
+    padding: 6px 10px;
+    font-size: 11px; font-weight: 700; font-family: inherit;
+    cursor: pointer; white-space: nowrap; flex-shrink: 0;
+    box-shadow: 0 2px 8px rgba(230,78,18,0.3);
+    transition: opacity .15s, transform .1s;
+  }
+  .month-school-dl-btn:active { transform: scale(0.95); }
+  .month-school-dl-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .month-school-dl-btn svg { width: 12px; height: 12px; flex-shrink: 0; }
+
+  /* ─── HISTORY — MONTH-BY-MONTH LAYOUT ─── */
+  .hist-reset-btn {
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    width: 100%;
+    border: 1.5px solid rgba(217,52,52,0.3);
+    background: rgba(217,52,52,0.07);
+    color: var(--danger);
+    border-radius: var(--r-sm);
+    padding: 13px 16px;
+    font-size: 13px; font-weight: 700; font-family: inherit;
+    cursor: pointer; margin-bottom: 6px;
+    transition: all .15s;
+  }
+  .hist-reset-btn:active { background: rgba(217,52,52,0.14); transform: scale(0.98); }
+  .hist-reset-note {
+    font-size: 11px; color: var(--ink-dim); text-align: center;
+    margin-bottom: 18px; line-height: 1.6;
+  }
+
+  .hist-months-wrap { display: flex; flex-direction: column; gap: 10px; }
+
+  .hist-month-block {
+    border-radius: var(--r);
+    overflow: hidden;
+    border: 1.5px solid var(--border);
+    background: var(--bg-card);
+  }
+  .hist-month-block.no-data {
+    opacity: 0.45;
+    border-style: dashed;
+  }
+
+  .hist-month-header {
+    display: flex; align-items: center; gap: 10px;
+    padding: 12px 14px;
+    background: var(--bg-raised);
+    border-bottom: 1px solid var(--border);
+    flex-wrap: wrap;
+  }
+  .hist-month-block.no-data .hist-month-header {
+    border-bottom: none;
+  }
+  .hist-month-label-wrap {
+    display: flex; flex-direction: column;
+    min-width: 46px; flex-shrink: 0;
+  }
+  .hist-month-en {
+    font-size: 9.5px; font-weight: 700; letter-spacing: 0.08em;
+    text-transform: uppercase; color: var(--orange); line-height: 1;
+    margin-bottom: 2px;
+  }
+  .hist-month-kh {
+    font-size: 14px; font-weight: 900; color: var(--ink); line-height: 1.2;
+  }
+  .hist-month-summary {
+    flex: 1; font-size: 12px; font-weight: 600; color: var(--ink-soft);
+  }
+  .hist-month-empty-label {
+    flex: 1; font-size: 12px; color: var(--ink-dim); font-style: italic;
+  }
+  .hist-bulk-dl-btn {
+    display: inline-flex; align-items: center; gap: 5px;
+    background: linear-gradient(135deg, #27A84C 0%, #2DC256 100%);
+    color: #fff; border: none; border-radius: 8px;
+    padding: 7px 12px;
+    font-size: 11.5px; font-weight: 700; font-family: inherit;
+    cursor: pointer; white-space: nowrap; flex-shrink: 0;
+    box-shadow: 0 3px 10px rgba(39,168,76,0.32);
+    transition: opacity .15s, transform .1s;
+  }
+  .hist-bulk-dl-btn:active { transform: scale(0.95); opacity: 0.88; }
+  .hist-bulk-dl-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  .hist-school-list { padding: 6px 10px 8px; }
+  .hist-school-row {
+    display: flex; align-items: center; gap: 10px;
+    padding: 9px 4px;
+    border-bottom: 1px solid rgba(230,78,18,0.07);
+  }
+  .hist-school-row:last-child { border-bottom: none; }
+  .hist-school-icon {
+    width: 32px; height: 32px; border-radius: 9px; flex-shrink: 0;
+    background: var(--orange-wash);
+    border: 1.5px solid rgba(230,78,18,0.18);
+    display: flex; align-items: center; justify-content: center;
+    color: var(--orange);
+  }
+  .hist-school-icon svg { width: 16px; height: 16px; }
+  .hist-school-info { flex: 1; min-width: 0; }
+  .hist-school-name {
+    font-size: 13px; font-weight: 700; color: var(--ink);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .hist-school-meta { font-size: 11px; color: var(--ink-dim); margin-top: 1px; }
+  .hist-school-dl-btn {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 34px; height: 34px; flex-shrink: 0;
+    background: var(--orange);
+    color: #fff; border: none; border-radius: 9px;
+    cursor: pointer;
+    box-shadow: 0 2px 8px rgba(230,78,18,0.3);
+    transition: opacity .15s, transform .1s;
+  }
+  .hist-school-dl-btn:active { transform: scale(0.92); }
+  .hist-school-dl-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
 </style>
 </head>
 <body>
@@ -2622,51 +2851,337 @@ function renderDownloadPanel(containerEl) {
   `;
 }
 
+/* ============================================================
+   MONTH DOWNLOAD PANEL — click a month tab to see all schools,
+   download individual school or ALL schools at once.
+   ============================================================ */
+
+// Track selected month tab for the filter panel
+if (typeof window._selectedMonthTab === 'undefined') window._selectedMonthTab = null;
+
+function getAllMonthsWithData() {
+  const monthSet = {};
+  state.visits.forEach(v => {
+    const mk = monthKey(v.date);
+    if (!monthSet[mk]) monthSet[mk] = { schools: new Set(), visits: 0, children: 0 };
+    monthSet[mk].schools.add(v.schoolId);
+    monthSet[mk].visits++;
+    monthSet[mk].children += (v.children || []).length;
+  });
+  return monthSet;
+}
+
+function getSchoolsForMonth(mk) {
+  const map = {};
+  state.visits
+    .filter(v => monthKey(v.date) === mk)
+    .forEach(v => {
+      if (!map[v.schoolId]) {
+        map[v.schoolId] = {
+          schoolId: v.schoolId,
+          schoolName: v.schoolName || v.schoolId,
+          communeName: v.communeName || '',
+          teachers: new Set(),
+          children: 0,
+          flagged: 0,
+          visits: []
+        };
+      }
+      map[v.schoolId].visits.push(v);
+      if (v.teacherName) map[v.schoolId].teachers.add(v.teacherName);
+      map[v.schoolId].children += (v.children || []).length;
+      map[v.schoolId].flagged += (v.children || []).filter(c => c.flags && c.flags.length > 0).length;
+    });
+  return Object.values(map).sort((a, b) => a.schoolName.localeCompare(b.schoolName));
+}
+
+// Download ALL schools for a given month into one ZIP-like multi-sheet Excel
+// (one sheet per school, and within each school sub-sheets by teacher as named ranges)
+// For simplicity: one Excel file, sheets = "SchoolName_TeacherName"
+async function downloadAllSchoolsForMonth(mk, btnEl) {
+  if (btnEl) { btnEl.disabled = true; btnEl.textContent = '⏳ កំពុងបង្កើត...'; }
+  try {
+    const XLSX = await loadXLSX();
+    const schools = getSchoolsForMonth(mk);
+    if (!schools.length) { alert('មិនមានទិន្នន័យក្នុងខែនេះ'); return; }
+
+    const wb = XLSX.utils.book_new();
+
+    const headers = [
+      'លេខសម្គាល់ (Visit ID)', 'កាលបរិច្ឆេទ', 'ឃុំ', 'សាលារៀន', 'គ្រូបង្រៀន',
+      'ប្រធានបទ', 'ឈ្មោះកុមារ', 'លេខសម្គាល់ (Child ID)',
+      'ភេទ', 'អាយុ', 'ថ្នាក់ទី', 'ស្ថានភាព',
+      'វត្តមាន', 'សុខភាព', 'ការអប់រំ', 'ការការពារ', 'ការចូលរួម', 'ចំណាំ'
+    ];
+
+    const getStatus = (flags, domain) => {
+      const f = (flags || []).find(x => x.domain === domain);
+      return f ? 'ត្រូវការកែតម្រូវ' : 'ល្អ';
+    };
+
+    schools.forEach(school => {
+      // Group this school's visits by teacher
+      const byTeacher = {};
+      school.visits.forEach(v => {
+        const tName = v.teacherName || 'គ្មានឈ្មោះ';
+        if (!byTeacher[tName]) byTeacher[tName] = [];
+        byTeacher[tName].push(v);
+      });
+
+      Object.keys(byTeacher).sort().forEach(teacherName => {
+        const rows = [headers];
+        byTeacher[teacherName].forEach(v => {
+          (v.children || []).forEach(c => {
+            const flagNotes = (c.flags || []).map(f => `${f.label}: ${f.note || '-'}`).join('; ');
+            rows.push([
+              v.id || '', v.date || '', v.communeName || '', school.schoolName,
+              teacherName, v.topic || '',
+              c.name || '', c.childId || '', c.gender || '', c.age || '',
+              c.grade || '', c.status || '',
+              getStatus(c.flags, 'presence'), getStatus(c.flags, 'health'),
+              getStatus(c.flags, 'education'), getStatus(c.flags, 'protection'),
+              getStatus(c.flags, 'participation'), flagNotes
+            ]);
+          });
+        });
+
+        // Sheet name: up to 31 chars, school + teacher
+        const safeSchool = (school.schoolName || 'S').replace(/[:\\\/\?\*\[\]']/g,'').slice(0, 15);
+        const safeTeacher = (teacherName || 'T').replace(/[:\\\/\?\*\[\]']/g,'').slice(0, 14);
+        const sheetName = `${safeSchool}_${safeTeacher}`.slice(0, 31) || 'Sheet';
+
+        const ws = XLSX.utils.aoa_to_sheet(rows);
+        ws['!cols'] = headers.map((_, i) => ({ wch: i === 6 ? 22 : i < 2 ? 14 : 13 }));
+        XLSX.utils.book_append_sheet(wb, ws, sheetName);
+      });
+    });
+
+    const filename = `RC_AllSchools_${monthFileSuffix(mk)}.xlsx`;
+    XLSX.writeFile(wb, filename);
+    showToast(`✓ ទាញយក ${schools.length} សាលា ខែ${monthLabel(mk)}`, iconCheck());
+  } catch (err) {
+    console.error(err);
+    alert('បញ្ហា: ' + err.message);
+  } finally {
+    if (btnEl) {
+      btnEl.disabled = false;
+      const dlIcon = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>`;
+      btnEl.innerHTML = dlIcon + ' ទាញយកទាំងអស់';
+    }
+  }
+}
+
+function renderMonthFilterPanel(containerEl) {
+  const monthData = getAllMonthsWithData();
+
+  // Determine the year to display — prefer the year with most data, else current year
+  const allMks = Object.keys(monthData);
+  const yearCounts = {};
+  allMks.forEach(mk => {
+    const y = mk.split('-')[0];
+    yearCounts[y] = (yearCounts[y] || 0) + 1;
+  });
+  const displayYear = allMks.length
+    ? Object.keys(yearCounts).sort((a,b) => yearCounts[b]-yearCounts[a])[0]
+    : String(new Date().getFullYear());
+
+  // Ensure selected tab is within this year and has data; else pick first with data
+  const validMks = allMks.filter(mk => mk.startsWith(displayYear));
+  if (!window._selectedMonthTab || !monthData[window._selectedMonthTab]) {
+    window._selectedMonthTab = validMks.length ? validMks.sort().reverse()[0] : null;
+  }
+
+  const EN_MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+  // Build all 12 cells
+  const gridHtml = KH_MONTHS.map((kh, i) => {
+    const mk = `${displayYear}-${String(i+1).padStart(2,'0')}`;
+    const info = monthData[mk];
+    const hasData = !!info;
+    const isActive = mk === window._selectedMonthTab;
+    const cls = [
+      'month-grid-btn',
+      hasData ? 'has-data' : 'no-data',
+      isActive ? 'active' : ''
+    ].join(' ');
+    const badge = hasData
+      ? `<span class="month-grid-badge">${info.schools.size} សាលា</span>` : '';
+    return `
+      <button class="${cls}" ${hasData ? `onclick="selectMonthTab('${mk}')"` : 'disabled'}>
+        <span class="month-grid-en">${EN_MONTHS[i]}</span>
+        <span class="month-grid-kh">${kh}</span>
+        ${badge}
+      </button>`;
+  }).join('');
+
+  // School list for selected month
+  const dlIcon = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>`;
+
+  let detailHtml = '';
+  if (window._selectedMonthTab && monthData[window._selectedMonthTab]) {
+    const mk = window._selectedMonthTab;
+    const schools = getSchoolsForMonth(mk);
+    const totalVisits = schools.reduce((n, s) => n + s.visits.length, 0);
+
+    const schoolRowsHtml = schools.map(s => {
+      const btnId = `msdl_${s.schoolId.replace(/[^a-zA-Z0-9]/g,'_')}_${mk}`;
+      const meta = `គ្រូ ${s.teachers.size}នាក់ · ការតាមដាន ${s.visits.length} · កុមារ ${s.children}${s.flagged ? ` · ⚑ ${s.flagged}` : ''}`;
+      return `
+        <div class="month-school-row">
+          <div class="month-school-info">
+            <div class="month-school-name">${escapeHtml(s.schoolName)}</div>
+            <div class="month-school-meta">${escapeHtml(meta)}</div>
+          </div>
+          <button id="${btnId}" class="month-school-dl-btn"
+            onclick="downloadSchoolMonthXLSX('${s.schoolId.replace(/'/g,"\\'")}','${mk}','${btnId}')">
+            ${dlIcon} Excel
+          </button>
+        </div>`;
+    }).join('');
+
+    detailHtml = `
+      <div class="month-detail-divider"></div>
+      <div class="month-schools-header">
+        <div class="month-schools-label">
+          ${schools.length} សាលា · ${totalVisits} ការតាមដាន — ${monthLabel(mk)}
+        </div>
+        <button id="bulkDlBtn_${mk}" class="bulk-dl-btn"
+          onclick="downloadAllSchoolsForMonth('${mk}', document.getElementById('bulkDlBtn_${mk}'))">
+          ${dlIcon} ទាញយកទាំងអស់
+        </button>
+      </div>
+      ${schoolRowsHtml || '<div style="font-size:13px;color:var(--ink-dim);padding:4px 0 8px;">មិនមានទិន្នន័យ</div>'}
+    `;
+  }
+
+  containerEl.innerHTML = `
+    <div class="month-filter-panel">
+      <div class="month-filter-title">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"></rect><line x1="16" y1="3" x2="16" y2="7"></line><line x1="8" y1="3" x2="8" y2="7"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+        ទាញយកតាមខែ · ${displayYear}
+      </div>
+      <div class="month-grid">${gridHtml}</div>
+      ${detailHtml}
+    </div>
+  `;
+}
+
+function selectMonthTab(mk) {
+  window._selectedMonthTab = mk;
+  const panel = document.getElementById('monthFilterPanelEl');
+  if (panel) renderMonthFilterPanel(panel);
+}
+
+/* ─── CLEAR HISTORY ─── */
+function clearAllHistory() {
+  const count = state.visits.length;
+  if (count === 0) { showToast('គ្មានប្រវត្តិដើម្បីលុប', iconFlag()); return; }
+  if (!confirm(`⚠️ លុបការតាមដានទាំង ${count} ចោលមែនទេ?\n\nសកម្មភាពនេះមិនអាចត្រឡប់វិញបានទេ។`)) return;
+  state.visits = [];
+  saveVisits([]);
+  window._selectedMonthTab = null;
+  showToast(`✓ បានលុបការតាមដាន ${count} ចោលរួចរាល់`, iconCheckCircle());
+  go('historyList', false);
+}
+
 /* ---------- HISTORY LIST ---------- */
 function renderHistoryList(el, bar){
   bar.style.display = "none";
 
-  // Admin sees all visits; teachers see only their own
-  const visibleVisits = (currentUser && currentUser.isAdmin)
+  const isAdmin = currentUser && currentUser.isAdmin;
+  const visibleVisits = isAdmin
     ? state.visits
     : state.visits.filter(v => v.teacherId === (currentUser && currentUser.teacherId));
 
-  if(visibleVisits.length===0){
-    el.innerHTML = `<div class="empty-state" style="margin-top:40px;">${emptySvg()}<p>មិនទាន់មានការតាមដានត្រូវបានកត់ត្រានៅឡើយទេ។<br>ចាប់ផ្ដើមការតាមដានថ្មីពីទំព័រដើម។</p></div>`;
-    return;
-  }
-  const isAdmin = currentUser && currentUser.isAdmin;
-  el.innerHTML = `
-    <div class="section-label">${isAdmin ? 'ការតាមដានទាំងអស់ (Admin)' : 'ការតាមដានរបស់ខ្ញុំ'}</div>
-    <div class="section-title">ប្រវត្តិការតាមដាន</div>
-    <div class="section-sub">បានរក្សាទុក ${visibleVisits.length} ការតាមដាន${isAdmin ? 'ពីគ្រូបង្រៀនទាំងអស់' : ''}ក្នុងទូរស័ព្ទនេះ។</div>
-    ${isAdmin ? '<div id="downloadBySchoolPanel"></div>' : ''}
-    <div id="histList"></div>
-  `;
-  if (isAdmin) {
-    const dlPanel = document.getElementById('downloadBySchoolPanel');
-    if (dlPanel) renderDownloadPanel(dlPanel);
-  }
-  const list = document.getElementById("histList");
-  list.innerHTML = visibleVisits.map(v=>{
-    const flagged = v.children.filter(c=>c.flags.length>0).length;
-    return `
-      <div class="list-card" data-id="${v.id}">
-        <div class="code-chip" style="background:${flagged? 'var(--flag-wash)':'var(--good-wash)'}; color:${flagged?'#8A5C03':'#2C6E4F'};">${flagged? iconFlag(): iconCheck()}</div>
-        <div class="list-card-text">
-          <div class="list-card-title">${v.schoolName}</div>
-          <div class="list-card-meta">${isAdmin ? v.teacherName+' · ' : ''}ឃុំ${v.communeName} · ${fmtDate(v.date)}</div>
-        </div>
-        <div class="chev">${iconChevron()}</div>
-      </div>
-    `;
-  }).join("");
-  list.querySelectorAll(".list-card").forEach(card=>{
-    card.onclick = ()=>{
-      state.activeVisitId = card.dataset.id;
-      go("historyDetail");
-    };
+  const dlIcon = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px;flex-shrink:0"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>`;
+  const trashIcon = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="width:15px;height:15px;flex-shrink:0"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"></path><path d="M10 11v6M14 11v6"></path><path d="M9 6V4h6v2"></path></svg>`;
+
+  // ── Build year from data (or current year) ──
+  const allYears = [...new Set(visibleVisits.map(v => (v.date||'').slice(0,4)).filter(Boolean))].sort();
+  const displayYear = allYears.length ? allYears[allYears.length - 1] : String(new Date().getFullYear());
+
+  // Group visits: month → school → visits[]
+  const byMonth = {};
+  visibleVisits.forEach(v => {
+    const mk = monthKey(v.date);
+    if (!mk.startsWith(displayYear)) return;
+    if (!byMonth[mk]) byMonth[mk] = {};
+    const sid = v.schoolId || v.schoolName;
+    if (!byMonth[mk][sid]) byMonth[mk][sid] = { schoolName: v.schoolName, communeName: v.communeName, schoolId: v.schoolId, teachers: new Set(), children: 0, flagged: 0, visits: [] };
+    byMonth[mk][sid].visits.push(v);
+    if (v.teacherName) byMonth[mk][sid].teachers.add(v.teacherName);
+    byMonth[mk][sid].children += (v.children||[]).length;
+    byMonth[mk][sid].flagged += (v.children||[]).filter(c=>c.flags&&c.flags.length>0).length;
   });
+
+  const EN_MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+  // Build all 12 months
+  let monthsHtml = '';
+  for (let m = 1; m <= 12; m++) {
+    const mk = `${displayYear}-${String(m).padStart(2,'0')}`;
+    const khMonth = KH_MONTHS[m-1];
+    const enMonth = EN_MONTHS[m-1];
+    const schools = byMonth[mk] ? Object.values(byMonth[mk]) : [];
+    const hasData = schools.length > 0;
+    const totalVisits = schools.reduce((n,s)=>n+s.visits.length,0);
+    const totalChildren = schools.reduce((n,s)=>n+s.children,0);
+    const totalFlagged = schools.reduce((n,s)=>n+s.flagged,0);
+
+    const schoolRowsHtml = schools
+      .sort((a,b)=>a.schoolName.localeCompare(b.schoolName))
+      .map(s => {
+        const btnId = `dl_${(s.schoolId||s.schoolName).replace(/[^a-zA-Z0-9]/g,'_')}_${mk}`;
+        return `
+          <div class="hist-school-row">
+            <div class="hist-school-icon">${iconSchool()}</div>
+            <div class="hist-school-info">
+              <div class="hist-school-name">${escapeHtml(s.schoolName)}</div>
+              <div class="hist-school-meta">
+                ${isAdmin ? `គ្រូ ${s.teachers.size}នាក់ · ` : ''}ការតាមដាន ${s.visits.length} · កុមារ ${s.children}${s.flagged ? ` · <span style="color:var(--flag)">⚑ ${s.flagged}</span>` : ` · <span style="color:var(--good)">✓</span>`}
+              </div>
+            </div>
+            <button id="${btnId}" class="hist-school-dl-btn"
+              onclick="downloadSchoolMonthXLSX('${(s.schoolId||'').replace(/'/g,"\\'")}','${mk}','${btnId}')">
+              ${dlIcon}
+            </button>
+          </div>`;
+      }).join('');
+
+    const bulkBtnId = `bulk_${mk}`;
+
+    monthsHtml += `
+      <div class="hist-month-block ${hasData ? 'has-data' : 'no-data'}">
+        <div class="hist-month-header">
+          <div class="hist-month-label-wrap">
+            <span class="hist-month-en">${enMonth}</span>
+            <span class="hist-month-kh">${khMonth}</span>
+          </div>
+          ${hasData ? `
+            <div class="hist-month-summary">${schools.length} សាលា · ${totalVisits} ការតាមដាន</div>
+            <button id="${bulkBtnId}" class="hist-bulk-dl-btn"
+              onclick="downloadAllSchoolsForMonth('${mk}', document.getElementById('${bulkBtnId}'))">
+              ${dlIcon} ទាញយកទាំងអស់
+            </button>
+          ` : `<div class="hist-month-empty-label">គ្មានទិន្នន័យ</div>`}
+        </div>
+        ${hasData ? `<div class="hist-school-list">${schoolRowsHtml}</div>` : ''}
+      </div>`;
+  }
+
+  el.innerHTML = `
+    <div class="section-title" style="margin-bottom:4px;">ប្រវត្តិការតាមដាន</div>
+    <div class="section-sub" style="margin-bottom:14px;">${displayYear} · ${visibleVisits.length} ការតាមដាន${isAdmin ? ' (ទាំងអស់)' : ''}</div>
+
+    ${isAdmin ? `
+    <button class="hist-reset-btn" onclick="clearAllHistory()">
+      ${trashIcon} កំណត់ប្រវត្តិឡើងវិញ (Reset Monitoring History)
+    </button>
+    <div class="hist-reset-note">⚠️ លុបតែទិន្នន័យក្នុងទូរស័ព្ទ · Google Sheets នៅដដែល</div>
+    ` : ''}
+
+    <div class="hist-months-wrap">${monthsHtml}</div>
+  `;
 }
 
 /* ---------- HISTORY DETAIL ---------- */
