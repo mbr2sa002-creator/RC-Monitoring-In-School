@@ -2680,195 +2680,178 @@ function monthFileSuffix(key) {
   return `${en[parseInt(m,10)-1]}_${y}`;
 }
 
-// ── Download one XLSX for a specific school + month ──────────────
-// File = RC_<School>_<Month>_<Year>.xlsx
-// Sheets = one per teacher who monitored that school that month
-async function downloadSchoolMonthXLSX(schoolId, mk, btnId) {
-  const btn = document.getElementById(btnId);
-  if (btn) { btn.disabled = true; btn.textContent = '⏳'; }
+/* ============================================================
+   DOWNLOAD HELPERS — single source of truth for all Excel exports
+   ============================================================
 
+   Saved visit record fields (finishVisit):
+     id, date, communeName, schoolId, schoolName,
+     teacherId, teacherName, topic, incomplete, savedAt,
+     children: [{ id, name, grade, villageName,
+                  flags: [{key, label, note}] }]
+
+   flags.key = "presence"|"health"|"education"|"protection"|"participation"
+   gender/age live in RC_DATA.children, NOT in the saved visit child record.
+*/
+
+const DL_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px;flex-shrink:0"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>`;
+
+const XLSX_HEADERS = [
+  'Visit ID','កាលបរិច្ឆេទ','ឃុំ','សាលារៀន','គ្រូបង្រៀន','ប្រធានបទ',
+  'ឈ្មោះកុមារ','Child ID','ភេទ','អាយុ','ថ្នាក់ទី','ស្ថានភាព',
+  'វត្តមាន','សុខភាព','ការអប់រំ','ការការពារ','ការចូលរួម','ចំណាំ'
+];
+const XLSX_COL_WIDTHS = XLSX_HEADERS.map((_,i)=>({ wch: i===6?24 : i<=1?14 : 13 }));
+
+// Build data rows from a list of visits.
+// Looks up gender/age from RC_DATA since those aren't stored in the visit record.
+function buildRows(visits) {
+  const rows = [XLSX_HEADERS];
+  const rcKids = (typeof RC_DATA !== 'undefined') ? (RC_DATA.children || []) : [];
+  const flagged = (flags, key) => (flags||[]).some(f => f.key === key);
+  const status  = (flags, key) => flagged(flags, key) ? 'ត្រូវការកែតម្រូវ' : 'ល្អ';
+
+  visits.forEach(v => {
+    (v.children || []).forEach(c => {
+      const full = rcKids.find(x => x.id === c.id) || {};
+      const notes = (c.flags||[]).length
+        ? (c.flags||[]).map(f=>`${f.label||f.key}: ${f.note||'-'}`).join('; ')
+        : 'ល្អ';
+      rows.push([
+        v.id            || '',
+        v.date          || '',
+        v.communeName   || '',
+        v.schoolName    || v.schoolId || '',
+        v.teacherName   || '',
+        v.topic         || '',
+        c.name          || full.name        || '',
+        c.id            || '',
+        full.gender     || '',
+        full.age        || '',
+        c.grade         || full.grade       || '',
+        v.incomplete    ? 'មិនបញ្ចប់' : 'បញ្ចប់',
+        status(c.flags,'presence'),
+        status(c.flags,'health'),
+        status(c.flags,'education'),
+        status(c.flags,'protection'),
+        status(c.flags,'participation'),
+        notes
+      ]);
+    });
+  });
+  return rows;
+}
+
+// Safe Excel sheet name (≤31 chars, no special chars)
+function safeSheet(name, fallback='Sheet') {
+  return (name||fallback).replace(/[:\\\/\?\*\[\]']/g,'').slice(0,31) || fallback;
+}
+
+// Write workbook grouped by teacher (one sheet per teacher)
+function buildWorkbook(XLSX, visitsByTeacher, label) {
+  const wb = XLSX.utils.book_new();
+  const used = {};
+  Object.keys(visitsByTeacher).sort().forEach(tName => {
+    let sn = safeSheet(tName);
+    if (used[sn]) { used[sn]++; sn = safeSheet(sn.slice(0,28)+'_'+used[sn]); } else used[sn]=1;
+    const ws = XLSX.utils.aoa_to_sheet(buildRows(visitsByTeacher[tName]));
+    ws['!cols'] = XLSX_COL_WIDTHS;
+    XLSX.utils.book_append_sheet(wb, ws, sn);
+  });
+  return wb;
+}
+
+// ── Download one school for one month ────────────────────────────
+async function downloadSchoolMonthXLSX(schoolKey, mk, btnId) {
+  const btn = document.getElementById(btnId);
+  if (btn) { btn.disabled=true; btn.innerHTML='⏳'; }
   try {
     const XLSX = await loadXLSX();
-
-    // All visits for this school in this month
-    const monthVisits = state.visits.filter(v =>
-      v.schoolId === schoolId && monthKey(v.date) === mk
+    // Match by schoolId OR schoolName — old records may only have one
+    const visits = state.visits.filter(v =>
+      monthKey(v.date) === mk &&
+      (v.schoolId === schoolKey || v.schoolName === schoolKey)
     );
-    if (!monthVisits.length) return;
+    if (!visits.length) { showToast('មិនមានទិន្នន័យ', iconFlag()); return; }
 
-    const schoolName = monthVisits[0].schoolName || schoolId;
-    const wb = XLSX.utils.book_new();
-
-    const headers = [
-      'លេខសម្គាល់ (Visit ID)', 'កាលបរិច្ឆេទ', 'ឃុំ', 'សាលារៀន', 'គ្រូបង្រៀន',
-      'ប្រធានបទ', 'ឈ្មោះកុមារ', 'លេខសម្គាល់ (Child ID)',
-      'ភេទ', 'អាយុ', 'ថ្នាក់ទី', 'ស្ថានភាព',
-      'វត្តមាន', 'សុខភាព', 'ការអប់រំ', 'ការការពារ', 'ការចូលរួម', 'ចំណាំ'
-    ];
-
-    const getStatus = (flags, domain) => {
-      const f = (flags || []).find(x => x.domain === domain);
-      return f ? 'ត្រូវការកែតម្រូវ' : 'ល្អ';
-    };
-
-    // Group by teacher
     const byTeacher = {};
-    monthVisits.forEach(v => {
-      const tName = v.teacherName || 'គ្មានឈ្មោះ';
-      if (!byTeacher[tName]) byTeacher[tName] = [];
-      byTeacher[tName].push(v);
+    visits.forEach(v => {
+      const t = v.teacherName || 'គ្មានឈ្មោះ';
+      (byTeacher[t] = byTeacher[t]||[]).push(v);
     });
 
-    // One sheet per teacher
-    Object.keys(byTeacher).sort().forEach(teacherName => {
-      const rows = [headers];
-      byTeacher[teacherName].forEach(v => {
-        (v.children || []).forEach(c => {
-          const flagNotes = (c.flags || []).map(f => `${f.label}: ${f.note || '-'}`).join('; ');
-          rows.push([
-            v.id || '',
-            v.date || '',
-            v.communeName || '',
-            schoolName,
-            teacherName,
-            v.topic || '',
-            c.name || '',
-            c.childId || '',
-            c.gender || '',
-            c.age || '',
-            c.grade || '',
-            c.status || '',
-            getStatus(c.flags, 'presence'),
-            getStatus(c.flags, 'health'),
-            getStatus(c.flags, 'education'),
-            getStatus(c.flags, 'protection'),
-            getStatus(c.flags, 'participation'),
-            flagNotes
-          ]);
+    const wb = buildWorkbook(XLSX, byTeacher);
+    const safe = (visits[0].schoolName||schoolKey).replace(/[^\u1780-\u17FFa-zA-Z0-9]/g,'_').slice(0,28);
+    XLSX.writeFile(wb, `RC_${safe}_${monthFileSuffix(mk)}.xlsx`);
+    showToast(`✓ បានទាញយក ${visits[0].schoolName||schoolKey}`, iconCheck());
+  } catch(e) {
+    console.error(e); alert('Excel error: '+e.message);
+  } finally {
+    if (btn) { btn.disabled=false; btn.innerHTML=DL_SVG; }
+  }
+}
+
+// ── Download ALL schools for one month (one workbook, sheets by school+teacher) ─
+async function downloadAllSchoolsForMonth(mk, btnEl) {
+  if (btnEl) { btnEl.disabled=true; btnEl.innerHTML='⏳ កំពុងបង្កើត...'; }
+  try {
+    const XLSX = await loadXLSX();
+    const visits = state.visits.filter(v => monthKey(v.date) === mk);
+    if (!visits.length) { showToast('មិនមានទិន្នន័យក្នុងខែនេះ', iconFlag()); return; }
+
+    const wb = XLSX.utils.book_new();
+    const usedSheets = {};
+
+    // Group: school → teacher → visits
+    const bySchool = {};
+    visits.forEach(v => {
+      const sk = v.schoolId || v.schoolName || 'Unknown';
+      const sn = v.schoolName || v.schoolId  || 'Unknown';
+      const t  = v.teacherName || 'គ្មានឈ្មោះ';
+      if (!bySchool[sk]) bySchool[sk] = { name: sn, teachers: {} };
+      (bySchool[sk].teachers[t] = bySchool[sk].teachers[t]||[]).push(v);
+    });
+
+    Object.values(bySchool)
+      .sort((a,b) => a.name.localeCompare(b.name))
+      .forEach(school => {
+        Object.keys(school.teachers).sort().forEach(tName => {
+          let sn = safeSheet(school.name.slice(0,15)+'_'+tName.slice(0,14));
+          if (usedSheets[sn]) { usedSheets[sn]++; sn = safeSheet(sn.slice(0,28)+'_'+usedSheets[sn]); }
+          else usedSheets[sn] = 1;
+          const ws = XLSX.utils.aoa_to_sheet(buildRows(school.teachers[tName]));
+          ws['!cols'] = XLSX_COL_WIDTHS;
+          XLSX.utils.book_append_sheet(wb, ws, sn);
         });
       });
 
-      const sheetName = teacherName.replace(/[:\\\/\?\*\[\]]/g, '').slice(0, 31) || 'Sheet';
-      const ws = XLSX.utils.aoa_to_sheet(rows);
-      ws['!cols'] = headers.map((_, i) => ({ wch: i === 6 ? 22 : i < 2 ? 14 : 13 }));
-      XLSX.utils.book_append_sheet(wb, ws, sheetName);
-    });
-
-    const safeSchool = schoolName.replace(/[^\u1780-\u17FFa-zA-Z0-9]/g, '_').slice(0, 28);
-    const filename = `RC_${safeSchool}_${monthFileSuffix(mk)}.xlsx`;
-    XLSX.writeFile(wb, filename);
-
-  } catch (err) {
-    console.error(err);
-    alert('បញ្ហាក្នុងការបង្កើតឯកសារ Excel: ' + err.message);
+    XLSX.writeFile(wb, `RC_AllSchools_${monthFileSuffix(mk)}.xlsx`);
+    showToast(`✓ ទាញយក ${Object.keys(bySchool).length} សាលា — ${monthLabel(mk)}`, iconCheck());
+  } catch(e) {
+    console.error(e); alert('Excel error: '+e.message);
   } finally {
-    if (btn) {
-      btn.disabled = false;
-      btn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px;flex-shrink:0"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>${monthLabel(btn.dataset.mk)}`;
-    }
+    if (btnEl) { btnEl.disabled=false; btnEl.innerHTML=DL_SVG+' ទាញយកទាំងអស់'; }
   }
 }
 
-function renderDownloadPanel(containerEl) {
-  const schools = getSchoolsWithMonitoredData();
-
-  if (!schools.length) {
-    containerEl.innerHTML = `
-      <div class="download-panel">
-        <div class="download-panel-title">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-          ទាញយក Excel តាមសាលា · ខែ
-        </div>
-        <div class="dl-no-data">មិនទាន់មានទិន្នន័យការតាមដាននៅឡើយទេ</div>
-      </div>
-    `;
-    return;
-  }
-
-  const dlIconSvg = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px;flex-shrink:0"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>`;
-
-  const schoolRowsHtml = schools.map(s => {
-    // Find all months with data for this school
-    const monthSet = {};
-    s.visits.forEach(v => {
-      const mk = monthKey(v.date);
-      if (!monthSet[mk]) monthSet[mk] = { teachers: new Set(), children: 0, flagged: 0 };
-      if (v.teacherName) monthSet[mk].teachers.add(v.teacherName);
-      monthSet[mk].children += (v.children || []).length;
-      monthSet[mk].flagged += (v.children || []).filter(c => c.flags && c.flags.length > 0).length;
-    });
-
-    const monthsSorted = Object.keys(monthSet).sort();
-
-    const monthBtnsHtml = monthsSorted.map(mk => {
-      const btnId = `dl_${s.schoolId.replace(/[^a-zA-Z0-9]/g,'_')}_${mk}`;
-      const info = monthSet[mk];
-      const teacherList = [...info.teachers].join(', ');
-      const meta = `គ្រូ ${info.teachers.size}នាក់ · កុមារ ${info.children}នាក់${info.flagged ? ' · ⚑ '+info.flagged : ''}`;
-      return `
-        <div class="month-dl-row">
-          <div class="month-dl-info">
-            <div class="month-dl-label">${monthLabel(mk)}</div>
-            <div class="month-dl-meta">${escapeHtml(meta)}</div>
-          </div>
-          <button id="${btnId}" data-mk="${mk}" class="month-dl-btn"
-            onclick="downloadSchoolMonthXLSX('${s.schoolId.replace(/'/g,"\\'")}','${mk}','${btnId}')">
-            ${dlIconSvg}${monthLabel(mk)}
-          </button>
-        </div>`;
-    }).join('');
-
-    const totalChildren = s.visits.reduce((n,v)=>n+(v.children||[]).length,0);
-    const flagged = s.visits.reduce((n,v)=>n+(v.children||[]).filter(c=>c.flags&&c.flags.length>0).length,0);
-
-    return `
-      <div class="school-dl-card">
-        <div class="school-dl-card-head">
-          <div>
-            <div class="school-dl-name">${escapeHtml(s.schoolName)}</div>
-            <div class="school-dl-meta">
-              ${monthsSorted.length} ខែ · គ្រូ ${s.teachers.size}នាក់ · ${s.visits.length} ការតាមដាន · កុមារ ${totalChildren}នាក់${flagged ? ` · ⚑ ${flagged}` : ''}
-            </div>
-          </div>
-        </div>
-        <div class="month-dl-list">${monthBtnsHtml}</div>
-      </div>`;
-  }).join('');
-
-  containerEl.innerHTML = `
-    <div class="download-panel">
-      <div class="download-panel-title">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-        ទាញយក Excel តាមសាលា · ខែ
-      </div>
-      <div class="download-panel-sub">
-        ឯកសារ Excel មួយក្នុងមួយខែ មួយសាលា។ ក្នុងឯកសារនីមួយៗ មានផ្ទាំងដាច់ដោយឡែកសម្រាប់គ្រូម្នាក់ៗដែលបានតាមដានខែនោះ។
-      </div>
-      <div class="school-dl-list">
-        ${schoolRowsHtml}
-      </div>
-    </div>
-  `;
-}
-
-/* ============================================================
-   MONTH DOWNLOAD PANEL — click a month tab to see all schools,
-   download individual school or ALL schools at once.
-   ============================================================ */
-
-// Track selected month tab for the filter panel
-if (typeof window._selectedMonthTab === 'undefined') window._selectedMonthTab = null;
-
-function getAllMonthsWithData() {
-  const monthSet = {};
-  state.visits.forEach(v => {
-    const mk = monthKey(v.date);
-    if (!monthSet[mk]) monthSet[mk] = { schools: new Set(), visits: 0, children: 0 };
-    monthSet[mk].schools.add(v.schoolId);
-    monthSet[mk].visits++;
-    monthSet[mk].children += (v.children || []).length;
+// ── Group visits by school for a given month (robust: never drops records) ──
+function getSchoolsForMonth(mk) {
+  const map = {};
+  state.visits.filter(v => monthKey(v.date) === mk).forEach(v => {
+    // key = schoolId if present, else schoolName — never undefined
+    const key = v.schoolId || v.schoolName || 'unknown';
+    if (!map[key]) map[key] = {
+      schoolKey: key,
+      schoolName: v.schoolName || v.schoolId || 'Unknown',
+      communeName: v.communeName || '',
+      teachers: new Set(), children: 0, flagged: 0, visits: []
+    };
+    map[key].visits.push(v);
+    if (v.teacherName) map[key].teachers.add(v.teacherName);
+    map[key].children += (v.children||[]).length;
+    map[key].flagged  += (v.children||[]).filter(c=>c.flags&&c.flags.length>0).length;
   });
-  return monthSet;
+  return Object.values(map).sort((a,b)=>a.schoolName.localeCompare(b.schoolName));
 }
 
 function getSchoolsForMonth(mk) {
@@ -3093,75 +3076,77 @@ function renderHistoryList(el, bar){
     ? state.visits
     : state.visits.filter(v => v.teacherId === (currentUser && currentUser.teacherId));
 
-  const dlIcon = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px;flex-shrink:0"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>`;
   const trashIcon = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="width:15px;height:15px;flex-shrink:0"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"></path><path d="M10 11v6M14 11v6"></path><path d="M9 6V4h6v2"></path></svg>`;
 
-  // ── Build year from data (or current year) ──
-  const allYears = [...new Set(visibleVisits.map(v => (v.date||'').slice(0,4)).filter(Boolean))].sort();
-  const displayYear = allYears.length ? allYears[allYears.length - 1] : String(new Date().getFullYear());
-
-  // Group visits: month → school → visits[]
-  const byMonth = {};
-  visibleVisits.forEach(v => {
-    const mk = monthKey(v.date);
-    if (!mk.startsWith(displayYear)) return;
-    if (!byMonth[mk]) byMonth[mk] = {};
-    const sid = v.schoolId || v.schoolName;
-    if (!byMonth[mk][sid]) byMonth[mk][sid] = { schoolName: v.schoolName, communeName: v.communeName, schoolId: v.schoolId, teachers: new Set(), children: 0, flagged: 0, visits: [] };
-    byMonth[mk][sid].visits.push(v);
-    if (v.teacherName) byMonth[mk][sid].teachers.add(v.teacherName);
-    byMonth[mk][sid].children += (v.children||[]).length;
-    byMonth[mk][sid].flagged += (v.children||[]).filter(c=>c.flags&&c.flags.length>0).length;
-  });
+  // Pick year: most recent year that has data, else current year
+  const allYears = [...new Set(visibleVisits.map(v=>(v.date||'').slice(0,4)).filter(Boolean))].sort();
+  const displayYear = allYears.length ? allYears[allYears.length-1] : String(new Date().getFullYear());
 
   const EN_MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
-  // Build all 12 months
+  // Build all 12 months using the shared getSchoolsForMonth function
+  // which uses schoolKey (schoolId || schoolName) — never drops records
   let monthsHtml = '';
   for (let m = 1; m <= 12; m++) {
     const mk = `${displayYear}-${String(m).padStart(2,'0')}`;
-    const khMonth = KH_MONTHS[m-1];
-    const enMonth = EN_MONTHS[m-1];
-    const schools = byMonth[mk] ? Object.values(byMonth[mk]) : [];
+    // getSchoolsForMonth reads from state.visits — filter to visible only
+    // by temporarily scoping (we rebuild from visibleVisits for non-admin)
+    const allForMonth = state.visits.filter(v => monthKey(v.date) === mk);
+    const scopedVisits = isAdmin
+      ? allForMonth
+      : allForMonth.filter(v => v.teacherId === (currentUser && currentUser.teacherId));
+
+    // Build school groups inline (same logic as getSchoolsForMonth but scoped)
+    const map = {};
+    scopedVisits.forEach(v => {
+      const key = v.schoolId || v.schoolName || 'unknown';
+      if (!map[key]) map[key] = {
+        schoolKey: key,
+        schoolName: v.schoolName || v.schoolId || 'Unknown',
+        teachers: new Set(), children: 0, flagged: 0, visits: []
+      };
+      map[key].visits.push(v);
+      if (v.teacherName) map[key].teachers.add(v.teacherName);
+      map[key].children += (v.children||[]).length;
+      map[key].flagged  += (v.children||[]).filter(c=>c.flags&&c.flags.length>0).length;
+    });
+    const schools = Object.values(map).sort((a,b)=>a.schoolName.localeCompare(b.schoolName));
+
     const hasData = schools.length > 0;
-    const totalVisits = schools.reduce((n,s)=>n+s.visits.length,0);
-    const totalChildren = schools.reduce((n,s)=>n+s.children,0);
-    const totalFlagged = schools.reduce((n,s)=>n+s.flagged,0);
-
-    const schoolRowsHtml = schools
-      .sort((a,b)=>a.schoolName.localeCompare(b.schoolName))
-      .map(s => {
-        const btnId = `dl_${(s.schoolId||s.schoolName).replace(/[^a-zA-Z0-9]/g,'_')}_${mk}`;
-        return `
-          <div class="hist-school-row">
-            <div class="hist-school-icon">${iconSchool()}</div>
-            <div class="hist-school-info">
-              <div class="hist-school-name">${escapeHtml(s.schoolName)}</div>
-              <div class="hist-school-meta">
-                ${isAdmin ? `គ្រូ ${s.teachers.size}នាក់ · ` : ''}ការតាមដាន ${s.visits.length} · កុមារ ${s.children}${s.flagged ? ` · <span style="color:var(--flag)">⚑ ${s.flagged}</span>` : ` · <span style="color:var(--good)">✓</span>`}
-              </div>
-            </div>
-            <button id="${btnId}" class="hist-school-dl-btn"
-              onclick="downloadSchoolMonthXLSX('${(s.schoolId||'').replace(/'/g,"\\'")}','${mk}','${btnId}')">
-              ${dlIcon}
-            </button>
-          </div>`;
-      }).join('');
-
+    const totalVisits = schools.reduce((n,s)=>n+s.visits.length, 0);
     const bulkBtnId = `bulk_${mk}`;
 
+    const schoolRowsHtml = schools.map(s => {
+      const btnId = `dl_${s.schoolKey.replace(/[^a-zA-Z0-9]/g,'_')}_${mk}`;
+      const safeKey = s.schoolKey.replace(/'/g,"\\'");
+      return `
+        <div class="hist-school-row">
+          <div class="hist-school-icon">${iconSchool()}</div>
+          <div class="hist-school-info">
+            <div class="hist-school-name">${escapeHtml(s.schoolName)}</div>
+            <div class="hist-school-meta">
+              ${isAdmin ? `គ្រូ ${s.teachers.size}នាក់ · ` : ''}ការតាមដាន ${s.visits.length} · កុមារ ${s.children}${s.flagged ? ` · <span style="color:var(--flag)">⚑ ${s.flagged}</span>` : ` · <span style="color:var(--good)">✓</span>`}
+            </div>
+          </div>
+          <button id="${btnId}" class="hist-school-dl-btn"
+            onclick="downloadSchoolMonthXLSX('${safeKey}','${mk}','${btnId}')">
+            ${DL_SVG}
+          </button>
+        </div>`;
+    }).join('');
+
     monthsHtml += `
-      <div class="hist-month-block ${hasData ? 'has-data' : 'no-data'}">
+      <div class="hist-month-block ${hasData?'has-data':'no-data'}">
         <div class="hist-month-header">
           <div class="hist-month-label-wrap">
-            <span class="hist-month-en">${enMonth}</span>
-            <span class="hist-month-kh">${khMonth}</span>
+            <span class="hist-month-en">${EN_MONTHS[m-1]}</span>
+            <span class="hist-month-kh">${KH_MONTHS[m-1]}</span>
           </div>
           ${hasData ? `
             <div class="hist-month-summary">${schools.length} សាលា · ${totalVisits} ការតាមដាន</div>
             <button id="${bulkBtnId}" class="hist-bulk-dl-btn"
               onclick="downloadAllSchoolsForMonth('${mk}', document.getElementById('${bulkBtnId}'))">
-              ${dlIcon} ទាញយកទាំងអស់
+              ${DL_SVG} ទាញយកទាំងអស់
             </button>
           ` : `<div class="hist-month-empty-label">គ្មានទិន្នន័យ</div>`}
         </div>
@@ -3171,15 +3156,13 @@ function renderHistoryList(el, bar){
 
   el.innerHTML = `
     <div class="section-title" style="margin-bottom:4px;">ប្រវត្តិការតាមដាន</div>
-    <div class="section-sub" style="margin-bottom:14px;">${displayYear} · ${visibleVisits.length} ការតាមដាន${isAdmin ? ' (ទាំងអស់)' : ''}</div>
-
+    <div class="section-sub" style="margin-bottom:14px;">${displayYear} · ${visibleVisits.length} ការតាមដាន${isAdmin?' (ទាំងអស់)':''}</div>
     ${isAdmin ? `
-    <button class="hist-reset-btn" onclick="clearAllHistory()">
-      ${trashIcon} កំណត់ប្រវត្តិឡើងវិញ (Reset Monitoring History)
-    </button>
-    <div class="hist-reset-note">⚠️ លុបតែទិន្នន័យក្នុងទូរស័ព្ទ · Google Sheets នៅដដែល</div>
+      <button class="hist-reset-btn" onclick="clearAllHistory()">
+        ${trashIcon} កំណត់ប្រវត្តិឡើងវិញ (Reset Monitoring History)
+      </button>
+      <div class="hist-reset-note">⚠️ លុបតែទិន្នន័យក្នុងទូរស័ព្ទ · Google Sheets នៅដដែល</div>
     ` : ''}
-
     <div class="hist-months-wrap">${monthsHtml}</div>
   `;
 }
