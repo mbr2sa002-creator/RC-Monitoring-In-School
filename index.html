@@ -861,13 +861,13 @@
     line-height: 1.3; margin-bottom: 8px;
   }
   .dash-app-sub {
-    font-size: 12px; color: rgba(255,255,255,0.8);
-    line-height: 1.6;
+    font-size: 11px; color: rgba(255,255,255,0.85);
+    line-height: 1.55;
   }
 
   /* Student SVG illustration */
   .dash-student-wrap {
-    width: 130px; flex-shrink: 0;
+    width: 108px; flex-shrink: 0;
     display: flex; align-items: flex-end; justify-content: center;
   }
 
@@ -1452,9 +1452,11 @@ function fmtDate(iso){
 
 function shortSchoolName(school){
   // School names look like "P007-7.បឋមសិក្សាអូរធំ" — strip the leading code+number for display
+  if(!school) return "";
   return (school.name || school.id).trim();
 }
 function shortTeacherName(teacher){
+  if(!teacher) return "";
   return (teacher.name || teacher.id).trim();
 }
 
@@ -1551,7 +1553,6 @@ function renderHome(el, bar){
         <div>
           <div class="dash-greeting-label">${greeting} 👋</div>
           <div class="dash-greeting-name">${currentUser ? currentUser.name : 'Staff'}</div>
-          <div class="dash-greeting-role">ID: ${currentUser ? currentUser.id : ''} · ${currentUser ? currentUser.role : ''}</div>
         </div>
         <div class="dash-avatar">${userInitials}</div>
       </div>
@@ -1559,7 +1560,7 @@ function renderHome(el, bar){
       <!-- Illustration + title -->
       <div class="dash-illustration">
         <div class="dash-title-block">
-          <div class="dash-app-sub">ត្រួតពិនិត្យកុមារ ៥ លក្ខណ<br>កាលបរិច្ឆេទ → ប្រធានបទ → តាមដាន</div>
+          <div class="dash-app-sub">សូមអរគុណ ${currentUser ? currentUser.name : ''} ដែលបានចូលរួមក្នុងការតាមដានកុមារទំនុកបំរុងក្នុងសាលារបស់អ្នក។<br>អ្នកបានរួមចំណែកយ៉ាងសំខាន់ដើម្បីជួយអោយកុមារ មានជីវិតកាន់តែប្រសើរឡើង។</div>
         </div>
 
         <!-- Student action SVG illustration -->
@@ -1760,7 +1761,7 @@ function renderSheetsSettings(el, bar) {
 }
 
 function startNewVisit(){
-  // Auto-fill teacher, school, commune from the logged-in teacher
+  // Auto-fill teacher, school, commune from the logged-in teacher (teacher accounts only)
   const teacher = currentUser && currentUser.teacherId
     ? RC_DATA.teachers.find(t => t.id === currentUser.teacherId)
     : null;
@@ -1775,7 +1776,14 @@ function startNewVisit(){
   state.history = [];
   state.schoolSearch = "";
   state.teacherSearch = "";
-  go("visitInfo", false);
+
+  // Teacher accounts already know their own commune/school/teacher -> skip straight to visit details.
+  // Admin (or any account without a resolved teacher) must pick commune -> school -> teacher first.
+  if (teacher && school) {
+    go("visitInfo", false);
+  } else {
+    go("commune", false);
+  }
 }
 
 /* ---------- STEP 1: COMMUNE ---------- */
@@ -2279,6 +2287,12 @@ function finishVisit(){
   const school = getSchool(state.draft.schoolId);
   const teacher = getTeacher(state.draft.teacherId);
   const children = childrenForTeacher(state.draft.teacherId);
+
+  if(!commune || !school || !teacher){
+    showToast("សូមជ្រើសរើស ឃុំ សាលា និងគ្រូ ឲ្យពេញលេញសិន", iconFlag());
+    go("commune");
+    return;
+  }
 
   const record = {
     id: "V" + Date.now(),
