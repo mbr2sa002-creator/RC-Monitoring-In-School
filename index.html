@@ -484,6 +484,44 @@
   .list-card .chev svg { width: 17px; height: 17px; }
 
   /* ─── EMPTY STATE ─── */
+  /* ─── DOWNLOAD BY SCHOOL PANEL ─── */
+  .download-panel {
+    background: var(--bg-card);
+    border: 1.5px solid var(--border);
+    border-radius: var(--r);
+    padding: 18px 16px 14px;
+    margin: 16px 0;
+  }
+  .download-panel-title {
+    font-size: 13px; font-weight: 700; color: var(--ink); margin-bottom: 4px;
+    display: flex; align-items: center; gap: 7px;
+  }
+  .download-panel-title svg { width: 16px; height: 16px; color: var(--orange); flex-shrink:0; }
+  .download-panel-sub {
+    font-size: 12px; color: var(--ink-soft); margin-bottom: 14px; line-height: 1.6;
+  }
+  .school-dl-list { display: flex; flex-direction: column; gap: 8px; }
+  .school-dl-row {
+    display: flex; align-items: center; justify-content: space-between;
+    background: var(--bg-raised); border-radius: var(--r-sm); padding: 10px 12px;
+    gap: 10px;
+  }
+  .school-dl-info { flex: 1; min-width: 0; }
+  .school-dl-name { font-size: 13px; font-weight: 700; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .school-dl-meta { font-size: 11.5px; color: var(--ink-soft); margin-top: 2px; }
+  .school-dl-btn {
+    flex-shrink: 0;
+    background: linear-gradient(135deg, var(--orange) 0%, var(--orange-mid) 100%);
+    color: #fff; border: none; border-radius: var(--r-xs);
+    padding: 7px 12px; font-size: 12px; font-weight: 700; font-family: inherit;
+    cursor: pointer; display: flex; align-items: center; gap: 5px;
+    transition: opacity .15s, transform .15s;
+    white-space: nowrap;
+  }
+  .school-dl-btn:active { opacity: .8; transform: scale(.97); }
+  .school-dl-btn svg { width: 13px; height: 13px; }
+  .dl-no-data { font-size: 12.5px; color: var(--ink-soft); text-align:center; padding: 12px 0; }
+
   .empty-state {
     text-align: center; padding: 48px 20px; color: var(--ink-dim);
   }
@@ -1026,6 +1064,63 @@
     flex-shrink: 0;
   }
   .criteria-good-badge svg { width: 13px; height: 13px; }
+
+  /* ─── DOWNLOAD PANEL (school card + month buttons) ─── */
+  .download-panel {
+    background: var(--bg-card);
+    border: 1.5px solid var(--border);
+    border-radius: var(--r);
+    padding: 16px;
+    margin-bottom: 16px;
+    box-shadow: 0 2px 8px rgba(230,78,18,0.05);
+  }
+  .download-panel-title {
+    font-size: 14px; font-weight: 800; color: var(--ink);
+    display: flex; align-items: center; gap: 8px; margin-bottom: 6px;
+  }
+  .download-panel-title svg { width: 16px; height: 16px; color: var(--orange); flex-shrink: 0; }
+  .download-panel-sub { font-size: 12px; color: var(--ink-soft); line-height: 1.65; margin-bottom: 14px; }
+  .dl-no-data { font-size: 13px; color: var(--ink-dim); padding: 10px 0; }
+
+  /* School card */
+  .school-dl-card {
+    background: var(--bg-raised);
+    border: 1.5px solid var(--border);
+    border-radius: var(--r-sm);
+    overflow: hidden;
+    margin-bottom: 12px;
+  }
+  .school-dl-card-head {
+    padding: 12px 14px 10px;
+    border-bottom: 1px solid var(--border);
+  }
+  .school-dl-name { font-size: 13.5px; font-weight: 800; color: var(--ink); line-height: 1.4; }
+  .school-dl-meta { font-size: 11.5px; color: var(--ink-soft); margin-top: 2px; line-height: 1.5; }
+
+  /* Month rows inside each school card */
+  .month-dl-list { padding: 6px 10px 8px; }
+  .month-dl-row {
+    display: flex; align-items: center; justify-content: space-between; gap: 10px;
+    padding: 7px 4px;
+    border-bottom: 1px solid rgba(230,78,18,0.08);
+  }
+  .month-dl-row:last-child { border-bottom: none; }
+  .month-dl-info { flex: 1; min-width: 0; }
+  .month-dl-label { font-size: 12.5px; font-weight: 700; color: var(--ink); }
+  .month-dl-meta { font-size: 11px; color: var(--ink-dim); margin-top: 1px; }
+  .month-dl-btn {
+    display: inline-flex; align-items: center; gap: 5px;
+    background: var(--orange);
+    color: #fff;
+    border: none; border-radius: 8px;
+    padding: 7px 11px;
+    font-size: 11.5px; font-weight: 700; font-family: inherit;
+    cursor: pointer; white-space: nowrap; flex-shrink: 0;
+    box-shadow: 0 3px 10px rgba(230,78,18,0.35);
+    transition: opacity .15s, transform .1s;
+  }
+  .month-dl-btn:active { transform: scale(0.95); opacity: 0.85; }
+  .month-dl-btn:disabled { opacity: 0.55; cursor: not-allowed; }
 
   /* ─── SCROLLBAR ─── */
   ::-webkit-scrollbar { display: none; }
@@ -2297,6 +2392,236 @@ function renderVisitSummary(el, bar){
   document.getElementById("another").onclick = startNewVisit;
 }
 
+/* ============================================================
+   DOWNLOAD BY SCHOOL
+   ============================================================ */
+
+function getSchoolsWithMonitoredData() {
+  // Group all visits by schoolId, counting teachers who submitted
+  const map = {};
+  state.visits.forEach(v => {
+    if (!v.schoolId) return;
+    if (!map[v.schoolId]) {
+      map[v.schoolId] = {
+        schoolId: v.schoolId,
+        schoolName: v.schoolName || v.schoolId,
+        communeName: v.communeName || '',
+        visits: [],
+        teachers: new Set()
+      };
+    }
+    map[v.schoolId].visits.push(v);
+    if (v.teacherId) map[v.schoolId].teachers.add(v.teacherId);
+  });
+  return Object.values(map).sort((a,b) => a.schoolName.localeCompare(b.schoolName));
+}
+
+// ── SheetJS loader (lazy, cached) ────────────────────────────────
+let _xlsxReady = null;
+function loadXLSX() {
+  if (_xlsxReady) return _xlsxReady;
+  _xlsxReady = new Promise((res, rej) => {
+    if (typeof XLSX !== 'undefined') { res(XLSX); return; }
+    const s = document.createElement('script');
+    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+    s.onload = () => res(XLSX);
+    s.onerror = () => rej(new Error('SheetJS failed to load'));
+    document.head.appendChild(s);
+  });
+  return _xlsxReady;
+}
+
+// ── Month helpers ────────────────────────────────────────────────
+const KH_MONTHS = ['មករា','កុម្ភៈ','មីនា','មេសា','ឧសភា','មិថុនា','កក្កដា','សីហា','កញ្ញា','តុលា','វិច្ឆិកា','ធ្នូ'];
+function monthKey(dateStr) {
+  if (!dateStr) return '0000-00';
+  const d = new Date(dateStr);
+  if (isNaN(d)) return '0000-00';
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+}
+function monthLabel(key) {
+  if (key === '0000-00') return 'គ្មានកាលបរិច្ឆេទ';
+  const [y, m] = key.split('-');
+  return `${KH_MONTHS[parseInt(m,10)-1]} ${y}`;
+}
+function monthFileSuffix(key) {
+  if (key === '0000-00') return 'NoDate';
+  const [y, m] = key.split('-');
+  const en = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  return `${en[parseInt(m,10)-1]}_${y}`;
+}
+
+// ── Download one XLSX for a specific school + month ──────────────
+// File = RC_<School>_<Month>_<Year>.xlsx
+// Sheets = one per teacher who monitored that school that month
+async function downloadSchoolMonthXLSX(schoolId, mk, btnId) {
+  const btn = document.getElementById(btnId);
+  if (btn) { btn.disabled = true; btn.textContent = '⏳'; }
+
+  try {
+    const XLSX = await loadXLSX();
+
+    // All visits for this school in this month
+    const monthVisits = state.visits.filter(v =>
+      v.schoolId === schoolId && monthKey(v.date) === mk
+    );
+    if (!monthVisits.length) return;
+
+    const schoolName = monthVisits[0].schoolName || schoolId;
+    const wb = XLSX.utils.book_new();
+
+    const headers = [
+      'លេខសម្គាល់ (Visit ID)', 'កាលបរិច្ឆេទ', 'ឃុំ', 'សាលារៀន', 'គ្រូបង្រៀន',
+      'ប្រធានបទ', 'ឈ្មោះកុមារ', 'លេខសម្គាល់ (Child ID)',
+      'ភេទ', 'អាយុ', 'ថ្នាក់ទី', 'ស្ថានភាព',
+      'វត្តមាន', 'សុខភាព', 'ការអប់រំ', 'ការការពារ', 'ការចូលរួម', 'ចំណាំ'
+    ];
+
+    const getStatus = (flags, domain) => {
+      const f = (flags || []).find(x => x.domain === domain);
+      return f ? 'ត្រូវការកែតម្រូវ' : 'ល្អ';
+    };
+
+    // Group by teacher
+    const byTeacher = {};
+    monthVisits.forEach(v => {
+      const tName = v.teacherName || 'គ្មានឈ្មោះ';
+      if (!byTeacher[tName]) byTeacher[tName] = [];
+      byTeacher[tName].push(v);
+    });
+
+    // One sheet per teacher
+    Object.keys(byTeacher).sort().forEach(teacherName => {
+      const rows = [headers];
+      byTeacher[teacherName].forEach(v => {
+        (v.children || []).forEach(c => {
+          const flagNotes = (c.flags || []).map(f => `${f.label}: ${f.note || '-'}`).join('; ');
+          rows.push([
+            v.id || '',
+            v.date || '',
+            v.communeName || '',
+            schoolName,
+            teacherName,
+            v.topic || '',
+            c.name || '',
+            c.childId || '',
+            c.gender || '',
+            c.age || '',
+            c.grade || '',
+            c.status || '',
+            getStatus(c.flags, 'presence'),
+            getStatus(c.flags, 'health'),
+            getStatus(c.flags, 'education'),
+            getStatus(c.flags, 'protection'),
+            getStatus(c.flags, 'participation'),
+            flagNotes
+          ]);
+        });
+      });
+
+      const sheetName = teacherName.replace(/[:\\\/\?\*\[\]]/g, '').slice(0, 31) || 'Sheet';
+      const ws = XLSX.utils.aoa_to_sheet(rows);
+      ws['!cols'] = headers.map((_, i) => ({ wch: i === 6 ? 22 : i < 2 ? 14 : 13 }));
+      XLSX.utils.book_append_sheet(wb, ws, sheetName);
+    });
+
+    const safeSchool = schoolName.replace(/[^\u1780-\u17FFa-zA-Z0-9]/g, '_').slice(0, 28);
+    const filename = `RC_${safeSchool}_${monthFileSuffix(mk)}.xlsx`;
+    XLSX.writeFile(wb, filename);
+
+  } catch (err) {
+    console.error(err);
+    alert('បញ្ហាក្នុងការបង្កើតឯកសារ Excel: ' + err.message);
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px;flex-shrink:0"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>${monthLabel(btn.dataset.mk)}`;
+    }
+  }
+}
+
+function renderDownloadPanel(containerEl) {
+  const schools = getSchoolsWithMonitoredData();
+
+  if (!schools.length) {
+    containerEl.innerHTML = `
+      <div class="download-panel">
+        <div class="download-panel-title">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          ទាញយក Excel តាមសាលា · ខែ
+        </div>
+        <div class="dl-no-data">មិនទាន់មានទិន្នន័យការតាមដាននៅឡើយទេ</div>
+      </div>
+    `;
+    return;
+  }
+
+  const dlIconSvg = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px;flex-shrink:0"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>`;
+
+  const schoolRowsHtml = schools.map(s => {
+    // Find all months with data for this school
+    const monthSet = {};
+    s.visits.forEach(v => {
+      const mk = monthKey(v.date);
+      if (!monthSet[mk]) monthSet[mk] = { teachers: new Set(), children: 0, flagged: 0 };
+      if (v.teacherName) monthSet[mk].teachers.add(v.teacherName);
+      monthSet[mk].children += (v.children || []).length;
+      monthSet[mk].flagged += (v.children || []).filter(c => c.flags && c.flags.length > 0).length;
+    });
+
+    const monthsSorted = Object.keys(monthSet).sort();
+
+    const monthBtnsHtml = monthsSorted.map(mk => {
+      const btnId = `dl_${s.schoolId.replace(/[^a-zA-Z0-9]/g,'_')}_${mk}`;
+      const info = monthSet[mk];
+      const teacherList = [...info.teachers].join(', ');
+      const meta = `គ្រូ ${info.teachers.size}នាក់ · កុមារ ${info.children}នាក់${info.flagged ? ' · ⚑ '+info.flagged : ''}`;
+      return `
+        <div class="month-dl-row">
+          <div class="month-dl-info">
+            <div class="month-dl-label">${monthLabel(mk)}</div>
+            <div class="month-dl-meta">${escapeHtml(meta)}</div>
+          </div>
+          <button id="${btnId}" data-mk="${mk}" class="month-dl-btn"
+            onclick="downloadSchoolMonthXLSX('${s.schoolId.replace(/'/g,"\\'")}','${mk}','${btnId}')">
+            ${dlIconSvg}${monthLabel(mk)}
+          </button>
+        </div>`;
+    }).join('');
+
+    const totalChildren = s.visits.reduce((n,v)=>n+(v.children||[]).length,0);
+    const flagged = s.visits.reduce((n,v)=>n+(v.children||[]).filter(c=>c.flags&&c.flags.length>0).length,0);
+
+    return `
+      <div class="school-dl-card">
+        <div class="school-dl-card-head">
+          <div>
+            <div class="school-dl-name">${escapeHtml(s.schoolName)}</div>
+            <div class="school-dl-meta">
+              ${monthsSorted.length} ខែ · គ្រូ ${s.teachers.size}នាក់ · ${s.visits.length} ការតាមដាន · កុមារ ${totalChildren}នាក់${flagged ? ` · ⚑ ${flagged}` : ''}
+            </div>
+          </div>
+        </div>
+        <div class="month-dl-list">${monthBtnsHtml}</div>
+      </div>`;
+  }).join('');
+
+  containerEl.innerHTML = `
+    <div class="download-panel">
+      <div class="download-panel-title">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        ទាញយក Excel តាមសាលា · ខែ
+      </div>
+      <div class="download-panel-sub">
+        ឯកសារ Excel មួយក្នុងមួយខែ មួយសាលា។ ក្នុងឯកសារនីមួយៗ មានផ្ទាំងដាច់ដោយឡែកសម្រាប់គ្រូម្នាក់ៗដែលបានតាមដានខែនោះ។
+      </div>
+      <div class="school-dl-list">
+        ${schoolRowsHtml}
+      </div>
+    </div>
+  `;
+}
+
 /* ---------- HISTORY LIST ---------- */
 function renderHistoryList(el, bar){
   bar.style.display = "none";
@@ -2315,8 +2640,13 @@ function renderHistoryList(el, bar){
     <div class="section-label">${isAdmin ? 'ការតាមដានទាំងអស់ (Admin)' : 'ការតាមដានរបស់ខ្ញុំ'}</div>
     <div class="section-title">ប្រវត្តិការតាមដាន</div>
     <div class="section-sub">បានរក្សាទុក ${visibleVisits.length} ការតាមដាន${isAdmin ? 'ពីគ្រូបង្រៀនទាំងអស់' : ''}ក្នុងទូរស័ព្ទនេះ។</div>
+    ${isAdmin ? '<div id="downloadBySchoolPanel"></div>' : ''}
     <div id="histList"></div>
   `;
+  if (isAdmin) {
+    const dlPanel = document.getElementById('downloadBySchoolPanel');
+    if (dlPanel) renderDownloadPanel(dlPanel);
+  }
   const list = document.getElementById("histList");
   list.innerHTML = visibleVisits.map(v=>{
     const flagged = v.children.filter(c=>c.flags.length>0).length;
