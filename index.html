@@ -1264,8 +1264,22 @@
   .hist-reset-btn:active { background: rgba(217,52,52,0.14); transform: scale(0.98); }
   .hist-reset-note {
     font-size: 11px; color: var(--ink-dim); text-align: center;
-    margin-bottom: 18px; line-height: 1.6;
+    margin-bottom: 10px; line-height: 1.6;
   }
+  .hist-sync-btn {
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    width: 100%;
+    border: 1.5px solid rgba(39,168,76,0.35);
+    background: rgba(39,168,76,0.08);
+    color: var(--good);
+    border-radius: var(--r-sm);
+    padding: 13px 16px;
+    font-size: 13px; font-weight: 700; font-family: inherit;
+    cursor: pointer; margin-bottom: 6px;
+    transition: all .15s;
+  }
+  .hist-sync-btn:active { background: rgba(39,168,76,0.16); transform: scale(0.98); }
+  .hist-sync-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
 
   .hist-months-wrap { display: flex; flex-direction: column; gap: 10px; }
 
@@ -1607,12 +1621,41 @@ const STORAGE_KEY = "rc_monitoring_visits_km_v1";
        .createTextOutput(JSON.stringify({success: true, rows: rows.length}))
        .setMimeType(ContentService.MimeType.JSON);
    }
+
+   // ★ ADD THIS doGet FUNCTION to enable Sync from any device ★
+   // Uses JSONP (callback param) to bypass CORS restrictions in browsers
+   function doGet(e) {
+     var action = e && e.parameter && e.parameter.action;
+     var callback = e && e.parameter && e.parameter.callback;
+     var json;
+     if (action === 'getAll') {
+       var ss = SpreadsheetApp.getActiveSpreadsheet();
+       var sheet = ss.getSheetByName("Submissions");
+       var dataRows = [];
+       if (sheet) {
+         var allRows = sheet.getDataRange().getValues();
+         dataRows = allRows.length > 1 ? allRows.slice(1) : [];
+       }
+       json = JSON.stringify({success:true, rows:dataRows});
+     } else {
+       json = JSON.stringify({success:false, error:'Unknown action'});
+     }
+     // Return JSONP if callback supplied — fixes CORS for all browsers/devices
+     if (callback) {
+       return ContentService
+         .createTextOutput(callback + '(' + json + ')')
+         .setMimeType(ContentService.MimeType.JAVASCRIPT);
+     }
+     return ContentService
+       .createTextOutput(json)
+       .setMimeType(ContentService.MimeType.JSON);
+   }
    ─────────────────────────────────────────────────────────────
 */
 
 // Google Sheets sync is pre-configured — every completed visit syncs automatically.
 // No manual setup needed on any device.
-const SHEETS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbw7Uxi0vQC1HmkWC9hw9HX6_0uQfBkQ6kBXXU7teDaYMO1OMPP4gg4Jqhf1Z0RHni0yfw/exec";
+const SHEETS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbweT7i0c2bYCCDIdh5CHYMFwImtSuPewJ56Jyz3JynIxtI_xRxoA-_vJPLNJeM8RkHWAA/exec";
 
 async function submitToGoogleSheets(record) {
   if (!SHEETS_SCRIPT_URL) return { skipped: true };
@@ -3060,6 +3103,145 @@ function selectMonthTab(mk) {
   if (panel) renderMonthFilterPanel(panel);
 }
 
+/* ─── SYNC FROM GOOGLE SHEETS (JSONP — bypasses CORS) ─── */
+function syncFromSheets() {
+  if (!SHEETS_SCRIPT_URL) {
+    showToast('មិនមាន Google Sheets URL', iconFlag()); return;
+  }
+  const btn = document.getElementById('syncFromSheetsBtn');
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ កំពុងទាញ…'; }
+
+  // Clean up any previous JSONP callback/script
+  const OLD_CB = '__sheetsSyncCb';
+  if (window[OLD_CB]) { try { delete window[OLD_CB]; } catch(e){} }
+  const oldScript = document.getElementById('__sheetsSyncScript');
+  if (oldScript) oldScript.remove();
+
+  // Timeout guard — 20 seconds
+  const timer = setTimeout(() => {
+    cleanup();
+    if (btn) { btn.disabled = false; btn.textContent = '☁️ ទាញយកទិន្នន័យពី Google Sheets (Sync All Devices)'; }
+    showToast('❌ Sync timeout — សូមព្យាយាមម្តងទៀត', iconFlag());
+  }, 20000);
+
+  function cleanup() {
+    clearTimeout(timer);
+    try { delete window[OLD_CB]; } catch(e){}
+    const s = document.getElementById('__sheetsSyncScript');
+    if (s) s.remove();
+  }
+
+  // JSONP callback — Apps Script calls this function with the data
+  window[OLD_CB] = function(data) {
+    cleanup();
+    if (btn) { btn.disabled = false; btn.textContent = '☁️ ទាញយកទិន្នន័យពី Google Sheets (Sync All Devices)'; }
+
+    if (!data || !data.success) {
+      showToast('❌ Sheets ឆ្លើយថា: ' + (data && data.error || 'Unknown error'), iconFlag());
+      return;
+    }
+
+    const rows = data.rows || [];
+    if (rows.length === 0) {
+      showToast('គ្មានទិន្នន័យក្នុង Sheets', iconFlag()); return;
+    }
+
+    // Rows: [Timestamp, VisitID, Date, CommuneID, CommuneName,
+    //   SchoolID, SchoolName, TeacherID, TeacherName, Topic, TotalChildren,
+    //   GoodChildren, FlaggedChildren, ChildID, ChildName, Grade, Village,
+    //   Presence, Health, Education, Protection, Participation, FlagDetails]
+    const visitMap = {};
+    rows.forEach(r => {
+      const vid = String(r[1] || '').trim();
+      if (!vid) return;
+      if (!visitMap[vid]) {
+        visitMap[vid] = {
+          id: vid,
+          date: String(r[2] || '').trim(),
+          communeId: String(r[3] || '').trim(),
+          communeName: String(r[4] || '').trim(),
+          schoolId: String(r[5] || '').trim(),
+          schoolName: String(r[6] || '').trim(),
+          teacherId: String(r[7] || '').trim(),
+          teacherName: String(r[8] || '').trim(),
+          topic: String(r[9] || '').trim(),
+          savedAt: String(r[0] || '').trim(),
+          children: []
+        };
+      }
+      const childId = String(r[13] || '').trim();
+      if (!childId) return;
+
+      // Avoid duplicate children in same visit
+      if (visitMap[vid].children.some(c => c.id === childId)) return;
+
+      const domainKeys = ['presence','health','education','protection','participation'];
+      const flags = [];
+      domainKeys.forEach((key, i) => {
+        const val = String(r[17 + i] || '').toLowerCase().trim();
+        if (val === 'flag' || val === 'ត្រូវការកែតម្រូវ') {
+          const cr = (typeof CRITERIA !== 'undefined') ? CRITERIA.find(c => c.key === key) : null;
+          flags.push({ key, label: cr ? cr.label : key, note: '' });
+        }
+      });
+
+      // Parse flag notes "Label: note | Label2: note2"
+      const flagDetails = String(r[22] || '').trim();
+      if (flagDetails && flags.length) {
+        flagDetails.split('|').forEach(part => {
+          const colonIdx = part.indexOf(':');
+          if (colonIdx < 0) return;
+          const lbl = part.slice(0, colonIdx).trim();
+          const note = part.slice(colonIdx + 1).trim();
+          const fl = flags.find(f => f.label === lbl);
+          if (fl) fl.note = note;
+        });
+      }
+
+      const fullChild = (typeof RC_DATA !== 'undefined')
+        ? (RC_DATA.children.find(c => c.id === childId) || {}) : {};
+      visitMap[vid].children.push({
+        id: childId,
+        name: String(r[14] || fullChild.name || '').trim(),
+        grade: String(r[15] || fullChild.grade || '').trim(),
+        villageName: String(r[16] || fullChild.villageName || '').trim(),
+        flags
+      });
+    });
+
+    const incoming = Object.values(visitMap);
+    if (incoming.length === 0) {
+      showToast('គ្មានការតាមដានត្រូវបានទាញ', iconFlag()); return;
+    }
+
+    // Merge — sheet is source of truth; keep local-only visits too
+    const incomingIds = new Set(incoming.map(v => v.id));
+    const merged = [
+      ...incoming,
+      ...state.visits.filter(v => !incomingIds.has(v.id))
+    ];
+    merged.sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+
+    state.visits = merged;
+    saveVisits(merged);
+    window._selectedMonthTab = null;
+
+    showToast(`✓ ទាញបាន ${incoming.length} ការតាមដាន · សរុប ${merged.length}`, iconCheckCircle());
+    go('historyList', false);
+  };
+
+  // Inject JSONP <script> tag — no CORS issues
+  const script = document.createElement('script');
+  script.id = '__sheetsSyncScript';
+  script.onerror = function() {
+    cleanup();
+    if (btn) { btn.disabled = false; btn.textContent = '☁️ ទាញយកទិន្នន័យពី Google Sheets (Sync All Devices)'; }
+    showToast('❌ មិនអាចភ្ជាប់ Sheets បាន — ពិនិត្យ Internet', iconFlag());
+  };
+  script.src = SHEETS_SCRIPT_URL + '?action=getAll&callback=' + OLD_CB;
+  document.head.appendChild(script);
+}
+
 /* ─── CLEAR HISTORY ─── */
 function clearAllHistory() {
   const count = state.visits.length;
@@ -3163,6 +3345,10 @@ function renderHistoryList(el, bar){
     <div class="section-title" style="margin-bottom:4px;">ប្រវត្តិការតាមដាន</div>
     <div class="section-sub" style="margin-bottom:14px;">${displayYear} · ${visibleVisits.length} ការតាមដាន${isAdmin?' (ទាំងអស់)':''}</div>
     ${isAdmin ? `
+      <button class="hist-sync-btn" id="syncFromSheetsBtn" onclick="syncFromSheets()">
+        ☁️ ទាញយកទិន្នន័យពី Google Sheets (Sync All Devices)
+      </button>
+      <div class="hist-reset-note" style="margin-bottom:14px;">ទាញទិន្នន័យពី Sheets មករក្សាទុកក្នុងឧបករណ៍នេះ</div>
       <button class="hist-reset-btn" onclick="clearAllHistory()">
         ${trashIcon} កំណត់ប្រវត្តិឡើងវិញ (Reset Monitoring History)
       </button>
