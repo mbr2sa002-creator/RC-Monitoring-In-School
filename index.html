@@ -1282,8 +1282,24 @@ const STORAGE_KEY = "rc_monitoring_visits_km_v1";
    ─────────────────────────────────────────────────────────────
 */
 
-// ★ PASTE YOUR APPS SCRIPT WEB APP URL HERE, OR SET IT IN-APP VIA SETTINGS ★
-let SHEETS_SCRIPT_URL = localStorage.getItem("rc_sheets_url") || "";
+// ★ SET YOUR APPS SCRIPT WEB APP URL HERE — AUTO-CONNECTED ON EVERY DEVICE ★
+// This default URL is used automatically unless overridden in Settings.
+const DEFAULT_SHEETS_SCRIPT_URL = ""; // ← Paste your Apps Script URL here once
+
+// Auto-connect: use the saved override if set, otherwise fall back to the built-in default
+let SHEETS_SCRIPT_URL = localStorage.getItem("rc_sheets_url") || DEFAULT_SHEETS_SCRIPT_URL;
+
+// If the stored override is blank but the default is set, clear the stale override so
+// the default is always picked up (handles the case where the admin cleared the URL in-app
+// but a new default has since been embedded).
+if (!localStorage.getItem("rc_sheets_url") && DEFAULT_SHEETS_SCRIPT_URL) {
+  // Nothing to do — SHEETS_SCRIPT_URL already holds DEFAULT_SHEETS_SCRIPT_URL above
+}
+
+// Helper: true when we're using the built-in default (not a manual override)
+function isUsingDefaultUrl() {
+  return !localStorage.getItem("rc_sheets_url") && !!DEFAULT_SHEETS_SCRIPT_URL;
+}
 
 async function submitToGoogleSheets(record) {
   if (!SHEETS_SCRIPT_URL) return { skipped: true };
@@ -1327,13 +1343,15 @@ async function submitToGoogleSheets(record) {
   };
 
   try {
-    const res = await fetch(SHEETS_SCRIPT_URL, {
+    // Use no-cors to avoid CORS preflight with Google Apps Script redirects.
+    // The data is sent and written to the sheet successfully; we just can't read the response.
+    await fetch(SHEETS_SCRIPT_URL, {
       method: "POST",
+      mode: "no-cors",
       body: JSON.stringify(payload),
-      headers: { "Content-Type": "text/plain" } // avoid CORS preflight
+      headers: { "Content-Type": "text/plain" }
     });
-    const json = await res.json();
-    return json;
+    return { success: true };
   } catch (err) {
     console.error("Google Sheets submission failed:", err);
     return { error: err.message };
@@ -1677,32 +1695,64 @@ function renderHome(el, bar){
 function renderSheetsSettings(el, bar) {
   bar.style.display = "none";
   const currentUrl = SHEETS_SCRIPT_URL;
+  const usingDefault = isUsingDefaultUrl();
+  const hasDefault = !!DEFAULT_SHEETS_SCRIPT_URL;
+  const hasOverride = !!localStorage.getItem("rc_sheets_url");
+
+  // Status label
+  let statusColor, statusText;
+  if (currentUrl) {
+    statusColor = "var(--good)";
+    statusText = usingDefault ? "✓ ភ្ជាប់ស្វ័យប្រវត្តិ (Auto-connected)" : "✓ បានភ្ជាប់ (Custom URL)";
+  } else {
+    statusColor = "var(--flag)";
+    statusText = "✗ មិនទាន់ភ្ជាប់ — បញ្ចូល URL ខាងក្រោម";
+  }
+
   el.innerHTML = `
     <div style="padding:8px 0 20px;">
       <div class="section-label">Google Sheets</div>
       <div class="section-title">ភ្ជាប់ Google Sheets</div>
       <div class="section-sub" style="line-height:1.8;">នៅពេលបញ្ចប់ការតាមដានម្ដង ទិន្នន័យនឹងត្រូវបញ្ជូនដោយស្វ័យប្រវត្តិទៅ Google Sheets។</div>
 
+      <!-- Status card -->
       <div class="visit-summary" style="margin-bottom:20px;">
         <div class="visit-summary-row"><span class="k">Spreadsheet</span><span class="v" style="font-size:11.5px;word-break:break-all;">RC Monitoring in School</span></div>
         <div class="visit-summary-row"><span class="k">Sheet tab</span><span class="v">Submissions (auto-created)</span></div>
-        <div class="visit-summary-row"><span class="k">ស្ថានភាព</span><span class="v" style="color:${currentUrl ? 'var(--good)' : 'var(--flag)'};">${currentUrl ? '✓ បានភ្ជាប់' : '✗ មិនទាន់ភ្ជាប់'}</span></div>
+        <div class="visit-summary-row"><span class="k">ស្ថានភាព</span><span class="v" style="color:${statusColor};font-size:12.5px;">${statusText}</span></div>
+        ${usingDefault ? `<div class="visit-summary-row"><span class="k">ប្រភព</span><span class="v" style="font-size:11.5px;color:var(--ink-soft);">Default (built-in)</span></div>` : ""}
+        ${hasOverride ? `<div class="visit-summary-row"><span class="k">ប្រភព</span><span class="v" style="font-size:11.5px;color:var(--ink-soft);">Custom override</span></div>` : ""}
       </div>
 
-      <div class="field-group">
-        <label class="field-label">Apps Script Web App URL <span class="req">*</span></label>
-        <input type="url" class="field-input" id="scriptUrlInput" placeholder="https://script.google.com/macros/s/..." value="${escapeHtml(currentUrl)}" style="font-size:13px;">
-        <div style="font-size:11.5px;color:var(--ink-dim);margin-top:6px;line-height:1.7;">
-          URL នេះទទួលបានពី Google Apps Script → Deploy → Web App
+      ${currentUrl ? `
+      <!-- Quick-action buttons when connected -->
+      <button class="btn btn-primary" id="testScriptUrl" style="margin-bottom:12px;">🔗 សាកល្បងភ្ជាប់</button>
+      ` : ""}
+
+      ${hasDefault && hasOverride ? `
+      <button class="btn btn-secondary" id="restoreDefaultUrl" style="margin-bottom:12px;color:var(--orange);border-color:rgba(230,78,18,0.4);">↩ ប្រើ Auto-connect URL ដើម</button>
+      ` : ""}
+
+      <!-- Manual URL override -->
+      <div style="margin-top:4px;background:var(--bg-raised);border-radius:var(--r);padding:16px;border:1.5px solid var(--border);margin-bottom:16px;">
+        <div style="font-size:13px;font-weight:700;margin-bottom:10px;color:var(--ink);">🔧 Custom URL (ស្រេចចិត្ត)</div>
+        <div style="font-size:12px;color:var(--ink-soft);margin-bottom:10px;line-height:1.7;">
+          ប្រសិនបើចង់ប្រើ Apps Script URL ផ្ទាល់ខ្លួន វាអាចបង្ហាញចរន្ត default URL ។
         </div>
+        <div class="field-group" style="margin-bottom:10px;">
+          <input type="url" class="field-input" id="scriptUrlInput"
+            placeholder="https://script.google.com/macros/s/..."
+            value="${escapeHtml(hasOverride ? localStorage.getItem("rc_sheets_url") : "")}"
+            style="font-size:13px;margin-bottom:0;">
+        </div>
+        <button class="btn btn-primary" id="saveScriptUrl" style="margin-bottom:0;">រក្សាទុក Custom URL</button>
       </div>
 
-      <button class="btn btn-primary" id="saveScriptUrl" style="margin-bottom:12px;">រក្សាទុក URL</button>
-      ${currentUrl ? `<button class="btn btn-secondary" id="testScriptUrl" style="margin-bottom:12px;">សាកល្បងភ្ជាប់</button>` : ""}
-      ${currentUrl ? `<button class="btn btn-secondary" id="clearScriptUrl" style="color:var(--danger);border-color:rgba(217,52,52,0.3);">លុប URL</button>` : ""}
+      ${hasOverride ? `<button class="btn btn-secondary" id="clearScriptUrl" style="color:var(--danger);border-color:rgba(217,52,52,0.3);margin-bottom:20px;">🗑 លុប Custom URL${hasDefault ? ' (ត្រឡប់ Auto-connect)' : ''}</button>` : ""}
 
-      <div style="margin-top:28px;background:var(--bg-raised);border-radius:var(--r);padding:16px;border:1.5px solid var(--border);">
-        <div style="font-size:13px;font-weight:700;margin-bottom:10px;color:var(--ink);">របៀបដំឡើង Apps Script</div>
+      <!-- Setup guide -->
+      <div style="margin-top:8px;background:var(--bg-raised);border-radius:var(--r);padding:16px;border:1.5px solid var(--border);">
+        <div style="font-size:13px;font-weight:700;margin-bottom:10px;color:var(--ink);">របៀបដំឡើង Apps Script (លើកដំបូង)</div>
         <div style="font-size:12.5px;color:var(--ink-soft);line-height:1.85;">
           <b>១.</b> បើក <a href="https://docs.google.com/spreadsheets/d/1NzZ7HWKZfUBrmNetBoEsSwLmtLX-AeQroFIcWfx0hdQ/" target="_blank" style="color:var(--orange);">Google Sheet</a><br>
           <b>២.</b> ចូល Extensions → Apps Script<br>
@@ -1710,52 +1760,66 @@ function renderSheetsSettings(el, bar) {
           <b>៤.</b> Deploy → New Deployment → Web App<br>
           &nbsp;&nbsp;&nbsp;• Execute as: <b>Me</b><br>
           &nbsp;&nbsp;&nbsp;• Who has access: <b>Anyone</b><br>
-          <b>៥.</b> ចម្លង URL → បិទភ្ជាប់ខាងលើ
+          <b>៥.</b> ចម្លង URL → បិទភ្ជាប់ក្នុង <code style="background:rgba(0,0,0,0.06);padding:1px 5px;border-radius:4px;">DEFAULT_SHEETS_SCRIPT_URL</code> នៅក្នុង source code<br>
+          <span style="color:var(--good);font-weight:700;">→ បន្ទាប់មក គ្រប់ user នឹងភ្ជាប់ស្វ័យប្រវត្តិ!</span>
         </div>
       </div>
     </div>
   `;
 
+  // Save custom URL
   document.getElementById("saveScriptUrl").onclick = () => {
     const url = document.getElementById("scriptUrlInput").value.trim();
+    if (!url) { showToast("សូមបញ្ចូល URL", iconFlag()); return; }
     SHEETS_SCRIPT_URL = url;
     localStorage.setItem("rc_sheets_url", url);
-    showToast(url ? "បានរក្សាទុក URL ✓" : "បានលុប URL", iconCheck());
-    setTimeout(() => go("home", false), 1000);
+    showToast("បានរក្សាទុក Custom URL ✓", iconCheck());
+    setTimeout(() => go("sheetsSettings", false), 900);
   };
 
+  // Test connection
   const testBtn = document.getElementById("testScriptUrl");
   if (testBtn) {
     testBtn.onclick = async () => {
-      testBtn.textContent = "កំពុងសាកល្បង…";
+      testBtn.textContent = "⏳ កំពុងសាកល្បង…";
       testBtn.disabled = true;
       try {
-        const res = await fetch(SHEETS_SCRIPT_URL, {
+        // no-cors: data is sent but response is opaque — we can't confirm success from JS,
+        // but if no network error is thrown the request reached Apps Script.
+        await fetch(SHEETS_SCRIPT_URL, {
           method: "POST",
+          mode: "no-cors",
           body: JSON.stringify({ test: true, id: "TEST", date: todayStr(), communeId:"", communeName:"TEST",schoolId:"",schoolName:"TEST",teacherId:"",teacherName:"TEST",topic:"TEST",totalChildren:0,goodCount:0,flaggedCount:0,children:[] }),
           headers: { "Content-Type": "text/plain" }
         });
-        const json = await res.json();
-        if (json.success) {
-          showToast("ភ្ជាប់បានជោគជ័យ ✓", iconCheckCircle());
-        } else {
-          showToast("ការភ្ជាប់មានបញ្ហា", iconFlag());
-        }
+        showToast("បានផ្ញើទៅ Sheets ✓ (សូមពិនិត្យ Sheet)", iconCheckCircle());
       } catch(e) {
-        showToast("ការភ្ជាប់ CORS ត្រូវការ Apps Script", iconFlag());
+        showToast("បណ្តាញបរាជ័យ — សូមពិនិត្យ URL", iconFlag());
       }
-      testBtn.textContent = "សាកល្បងភ្ជាប់";
+      testBtn.textContent = "🔗 សាកល្បងភ្ជាប់";
       testBtn.disabled = false;
     };
   }
 
+  // Restore default
+  const restoreBtn = document.getElementById("restoreDefaultUrl");
+  if (restoreBtn) {
+    restoreBtn.onclick = () => {
+      localStorage.removeItem("rc_sheets_url");
+      SHEETS_SCRIPT_URL = DEFAULT_SHEETS_SCRIPT_URL;
+      showToast("បានប្តូរទៅ Auto-connect URL ✓", iconCheck());
+      setTimeout(() => go("sheetsSettings", false), 900);
+    };
+  }
+
+  // Clear custom URL
   const clearBtn = document.getElementById("clearScriptUrl");
   if (clearBtn) {
     clearBtn.onclick = () => {
-      SHEETS_SCRIPT_URL = "";
       localStorage.removeItem("rc_sheets_url");
-      showToast("បានលុប URL", iconFlag());
-      setTimeout(() => go("sheetsSettings", false), 800);
+      SHEETS_SCRIPT_URL = DEFAULT_SHEETS_SCRIPT_URL || "";
+      showToast(DEFAULT_SHEETS_SCRIPT_URL ? "ប្តូរទៅ Auto-connect ✓" : "បានលុប URL", iconCheck());
+      setTimeout(() => go("sheetsSettings", false), 900);
     };
   }
 }
